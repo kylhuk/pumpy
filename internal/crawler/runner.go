@@ -120,6 +120,9 @@ func (r *Runner) extractSOLEdges(n *dune.NormalizedTransaction, currentWallet st
 		if err != nil || st == nil {
 			return
 		}
+		if n.Signature == "" {
+			return
+		}
 		if int64(st.Lamports) < r.cfg.MinTransferLamps {
 			return
 		}
