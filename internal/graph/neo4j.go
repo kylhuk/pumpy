@@ -17,9 +17,9 @@ type Edge struct {
 	BlockTime      int64
 	From           string
 	To             string
-	Asset          string  // "SOL" for v1
+	Asset          string
 	AmountLamports int64
-	Kind           string  // "system_transfer"
+	Kind           string
 	Confidence     float64
 	SourceProgram  string
 }
@@ -41,9 +41,12 @@ func (w *Writer) Close(ctx context.Context) error { return w.driver.Close(ctx) }
 func (w *Writer) EnsureConstraints(ctx context.Context) error {
 	sess := w.driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
 	defer sess.Close(ctx)
-	_, err := sess.Run(ctx,
-		`CREATE CONSTRAINT wallet_address IF NOT EXISTS FOR (w:Wallet) REQUIRE w.address IS UNIQUE`,
-		nil)
+	_, err := sess.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		_, err := tx.Run(ctx,
+			`CREATE CONSTRAINT wallet_address IF NOT EXISTS FOR (w:Wallet) REQUIRE w.address IS UNIQUE`,
+			nil)
+		return nil, err
+	})
 	return err
 }
 
@@ -65,20 +68,18 @@ func (w *Writer) UpsertEdges(ctx context.Context, seedSource string, edges []Edg
 			  ON CREATE SET a.first_seen_at = datetime(), a.source = $source
 			MERGE (b:Wallet {address: e.to})
 			  ON CREATE SET b.first_seen_at = datetime(), b.source = 'discovered'
-			MERGE (a)-[t:TRANSFER {
-				signature:       e.signature,
-				from:            e.from,
-				to:              e.to,
-				asset:           e.asset,
-				amount_lamports: e.amount_lamports,
-				kind:            e.kind
-			}]->(b)
+			MERGE (a)-[t:TRANSFER {signature: e.signature}]->(b)
 			ON CREATE SET
-				t.block_slot     = e.block_slot,
-				t.block_time     = e.block_time,
-				t.confidence     = e.confidence,
-				t.source_program = e.source_program,
-				t.inserted_at    = datetime()
+				t.from            = e.from,
+				t.to              = e.to,
+				t.asset           = e.asset,
+				t.amount_lamports = e.amount_lamports,
+				t.kind            = e.kind,
+				t.block_slot      = e.block_slot,
+				t.block_time      = e.block_time,
+				t.confidence      = e.confidence,
+				t.source_program  = e.source_program,
+				t.inserted_at     = datetime()
 		`, params)
 		return nil, err
 	})
