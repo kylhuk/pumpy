@@ -92,6 +92,32 @@ services:
       timeout: 5s
       retries: 20
 
+  neodash:
+    image: neo4jlabs/neodash:2.4.11
+    restart: unless-stopped
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    ports:
+      - "5005:5005"
+    environment:
+      ssoEnabled: "false"
+      standalone: "true"
+      standaloneProtocol: "bolt"
+      standaloneHost: "${NEODASH_HOST:-localhost}"
+      standalonePort: "17687"
+      standaloneDatabase: "neo4j"
+      standaloneUsername: "neo4j"
+      standalonePassword: "${NEO4J_PASSWORD:-pumpypumpy}"
+      standaloneDashboardName: "Wallet Graph"
+      standaloneDashboardDatabase: "neo4j"
+      standaloneAllowLoad: "true"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
 volumes:
   pgdata:
   neo4jdata:
