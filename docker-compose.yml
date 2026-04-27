@@ -45,7 +45,6 @@ services:
 
   pumpy-crawl:
     build: .
-    image: pumpy:latest
     restart: unless-stopped
     depends_on:
       postgres:
