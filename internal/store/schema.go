@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS schema_version (version INT PRIMARY KEY);
 INSERT INTO schema_version VALUES (1) ON CONFLICT DO NOTHING;
 `
 
+// initSQLv2 mirrors migrations/002_wallet_graph.sql — keep both in sync.
 const initSQLv2 = `
 -- Pump.fun program IDs to exclude. Bootstrapped from a constant; can be
 -- amended at runtime by INSERTing additional rows.
@@ -126,6 +127,11 @@ func (s *Store) ApplySchema(ctx context.Context) error {
 	if _, err := s.pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_version (version INT PRIMARY KEY)`); err != nil {
 		return fmt.Errorf("ensure schema_version: %w", err)
 	}
+
+	if _, err := s.pool.Exec(ctx, `SELECT pg_advisory_lock(8675309)`); err != nil {
+		return fmt.Errorf("acquire migration lock: %w", err)
+	}
+	defer s.pool.Exec(ctx, `SELECT pg_advisory_unlock(8675309)`) //nolint:errcheck
 
 	var current int
 	if err := s.pool.QueryRow(ctx, `SELECT COALESCE(MAX(version), 0) FROM schema_version`).Scan(&current); err != nil {
