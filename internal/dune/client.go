@@ -30,9 +30,6 @@ func NewClient(baseURL, apiKey string, rps float64, maxRetries int) *Client {
 	}
 }
 
-// GetTransactions fetches one page of transactions for address.
-// offset="" means start from newest (no offset param sent).
-// Returns the parsed response, the raw *http.Response (for status code logging), and any error.
 func (c *Client) GetTransactions(ctx context.Context, address string, limit int, offset string) (*TransactionsResponse, *http.Response, error) {
 	u, err := url.Parse(fmt.Sprintf("%s/beta/svm/transactions/%s", c.baseURL, address))
 	if err != nil {

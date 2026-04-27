@@ -48,6 +48,7 @@ func (r *Runner) CrawlOnce(ctx context.Context, lease *WalletLease) (int, error)
 			n, err := dune.Normalize(dt)
 			if err != nil {
 				log.Printf("crawl %s: normalize %s: %v", lease.Wallet, dt.Signature, err)
+				_, _ = MarkSeen(ctx, r.pool, lease.Wallet, dt.Signature, dt.BlockSlot, dt.BlockTime)
 				continue
 			}
 
@@ -59,6 +60,9 @@ func (r *Runner) CrawlOnce(ctx context.Context, lease *WalletLease) (int, error)
 				if !lease.IsBackfill {
 					seenOldRun++
 					if seenOldRun >= r.cfg.StopAfterSeen {
+						if err := UpdateCrawlState(ctx, r.pool, lease.Wallet, nil, 0, 0); err != nil {
+							return pages, err
+						}
 						if err := CompleteWallet(ctx, r.pool, lease.Wallet, false); err != nil {
 							return pages, err
 						}
