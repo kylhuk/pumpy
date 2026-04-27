@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -41,6 +42,9 @@ func (p *PgLookup) RefreshPrograms(ctx context.Context) error {
 			return err
 		}
 		next[id] = true
+	}
+	if err := rows.Err(); err != nil {
+		return err
 	}
 	p.mu.Lock()
 	p.programs = next
@@ -110,7 +114,9 @@ func PickNextWallet(ctx context.Context, pool *pgxpool.Pool, incrementalAge time
          FOR UPDATE SKIP LOCKED`,
 		int(incrementalAge.Seconds())).Scan(&w.Wallet, &done, &nextOffset)
 	if err != nil {
-		_ = tx.Rollback(ctx)
+		if rbErr := tx.Rollback(ctx); rbErr != nil {
+			log.Printf("rollback wallet_crawl_state lease: %v", rbErr)
+		}
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil, nil
 		}
@@ -122,7 +128,9 @@ func PickNextWallet(ctx context.Context, pool *pgxpool.Pool, incrementalAge time
 	}
 	if _, err := tx.Exec(ctx,
 		`UPDATE wallet_crawl_state SET last_started_at = now() WHERE wallet = $1`, w.Wallet); err != nil {
-		_ = tx.Rollback(ctx)
+		if rbErr := tx.Rollback(ctx); rbErr != nil {
+			log.Printf("rollback wallet_crawl_state lease: %v", rbErr)
+		}
 		return nil, nil, err
 	}
 	return &w, func(ctx context.Context) error { return tx.Commit(ctx) }, nil
@@ -140,12 +148,18 @@ func MarkSeen(ctx context.Context, pool *pgxpool.Pool, wallet, sig string, slot,
 }
 
 func StoreTransactionMin(ctx context.Context, pool *pgxpool.Pool, n *dune.NormalizedTransaction, isPumpExcluded bool, exclusionReason string) error {
-	accountKeys, _ := json.Marshal(n.AccountKeys)
+	accountKeys, err := json.Marshal(n.AccountKeys)
+	if err != nil {
+		return fmt.Errorf("marshal account_keys: %w", err)
+	}
 	progIDs := make([]string, 0, len(n.ProgramIDs))
 	for k := range n.ProgramIDs {
 		progIDs = append(progIDs, k)
 	}
-	pj, _ := json.Marshal(progIDs)
+	pj, err := json.Marshal(progIDs)
+	if err != nil {
+		return fmt.Errorf("marshal program_ids: %w", err)
+	}
 	var errStr *string
 	if n.Err != "" {
 		errStr = &n.Err
@@ -154,7 +168,7 @@ func StoreTransactionMin(ctx context.Context, pool *pgxpool.Pool, n *dune.Normal
 	if exclusionReason != "" {
 		excReason = &exclusionReason
 	}
-	_, err := pool.Exec(ctx, `
+	_, err = pool.Exec(ctx, `
         INSERT INTO transaction_min (signature, block_slot, block_time, fee_lamports, err, account_keys, program_ids, is_pump_excluded, exclusion_reason)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         ON CONFLICT (signature) DO NOTHING`,

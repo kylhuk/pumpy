@@ -2,6 +2,7 @@ package crawler
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"pumpy/internal/dune"
@@ -10,15 +11,16 @@ import (
 type stubLookup struct {
 	sigs     map[string]bool
 	programs map[string]bool
+	sigErr   error
 }
 
 func (s *stubLookup) IsKnownPumpSignature(_ context.Context, sig string) (bool, error) {
-	return s.sigs[sig], nil
+	return s.sigs[sig], s.sigErr
 }
 func (s *stubLookup) IsPumpProgram(programID string) bool { return s.programs[programID] }
 
 func TestClassify_KnownSignature(t *testing.T) {
-	lk := &stubLookup{sigs: map[string]bool{"sig-pump": true}}
+	lk := &stubLookup{sigs: map[string]bool{"sig-pump": true}, programs: map[string]bool{}}
 	n := &dune.NormalizedTransaction{Signature: "sig-pump", AccountKeys: []string{"a"}, ProgramIDs: map[string]bool{"x": true}}
 	res, err := Classify(context.Background(), n, lk)
 	if err != nil {
@@ -30,7 +32,7 @@ func TestClassify_KnownSignature(t *testing.T) {
 }
 
 func TestClassify_PumpProgramInstruction(t *testing.T) {
-	lk := &stubLookup{programs: map[string]bool{"PumpProg": true}}
+	lk := &stubLookup{sigs: map[string]bool{}, programs: map[string]bool{"PumpProg": true}}
 	n := &dune.NormalizedTransaction{
 		Signature:   "sig-other",
 		AccountKeys: []string{"a", "b"},
@@ -46,7 +48,7 @@ func TestClassify_PumpProgramInstruction(t *testing.T) {
 }
 
 func TestClassify_PumpProgramAccountKey(t *testing.T) {
-	lk := &stubLookup{programs: map[string]bool{"PumpProg": true}}
+	lk := &stubLookup{sigs: map[string]bool{}, programs: map[string]bool{"PumpProg": true}}
 	n := &dune.NormalizedTransaction{
 		Signature:   "sig-other",
 		AccountKeys: []string{"a", "PumpProg"},
@@ -62,7 +64,7 @@ func TestClassify_PumpProgramAccountKey(t *testing.T) {
 }
 
 func TestClassify_NonPump(t *testing.T) {
-	lk := &stubLookup{}
+	lk := &stubLookup{sigs: map[string]bool{}, programs: map[string]bool{}}
 	n := &dune.NormalizedTransaction{
 		Signature:   "sig-clean",
 		AccountKeys: []string{"a", "b"},
@@ -74,5 +76,18 @@ func TestClassify_NonPump(t *testing.T) {
 	}
 	if res.Excluded {
 		t.Errorf("want not excluded, got %+v", res)
+	}
+}
+
+func TestClassify_LookupError(t *testing.T) {
+	lk := &stubLookup{sigErr: fmt.Errorf("db down")}
+	n := &dune.NormalizedTransaction{
+		Signature:   "any-sig",
+		AccountKeys: []string{"a"},
+		ProgramIDs:  map[string]bool{"x": true},
+	}
+	_, err := Classify(context.Background(), n, lk)
+	if err == nil {
+		t.Error("want error from Classify when lookup fails, got nil")
 	}
 }
