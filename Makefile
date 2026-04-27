@@ -6,6 +6,7 @@ DB_URL?=postgres://pumpy:pumpy@localhost:5432/pumpy?sslmode=disable
 build: tidy
 	$(GO) build -o bin/pumpy-ingest ./cmd/pumpy-ingest
 	$(GO) build -o bin/pumpy        ./cmd/pumpy
+	$(GO) build -o bin/pumpy-crawl  ./cmd/pumpy-crawl
 
 tidy:
 	$(GO) mod tidy
