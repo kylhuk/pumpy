@@ -58,11 +58,16 @@ services:
       NEO4J_dbms_security_procedures_unrestricted: gds.*
     volumes:
       - neo4jdata:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:7474 || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:7474/db/neo4j/available 2>/dev/null | grep -q 'true' || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 20
 
 volumes:
   pgdata:
