@@ -124,28 +124,37 @@ INSERT INTO schema_version (version) VALUES (2) ON CONFLICT DO NOTHING;
 // ApplySchema runs migrations sequentially by version number, then ensures
 // daily partitions exist for [today-1 .. today+7].
 func (s *Store) ApplySchema(ctx context.Context) error {
+	// schema_version must exist before we can lock; use pool directly (no lock needed yet).
 	if _, err := s.pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_version (version INT PRIMARY KEY)`); err != nil {
 		return fmt.Errorf("ensure schema_version: %w", err)
 	}
 
-	if _, err := s.pool.Exec(ctx, `SELECT pg_advisory_lock(8675309)`); err != nil {
+	// pg_advisory_lock is session-level: acquire, migrate, and unlock on the
+	// same connection by pinning a dedicated connection from the pool.
+	conn, err := s.pool.Acquire(ctx)
+	if err != nil {
+		return fmt.Errorf("acquire connection for migration lock: %w", err)
+	}
+	defer conn.Release()
+
+	if _, err := conn.Exec(ctx, `SELECT pg_advisory_lock(8675309)`); err != nil {
 		return fmt.Errorf("acquire migration lock: %w", err)
 	}
-	defer s.pool.Exec(ctx, `SELECT pg_advisory_unlock(8675309)`) //nolint:errcheck
+	defer conn.Exec(ctx, `SELECT pg_advisory_unlock(8675309)`) //nolint:errcheck
 
 	var current int
-	if err := s.pool.QueryRow(ctx, `SELECT COALESCE(MAX(version), 0) FROM schema_version`).Scan(&current); err != nil {
+	if err := conn.QueryRow(ctx, `SELECT COALESCE(MAX(version), 0) FROM schema_version`).Scan(&current); err != nil {
 		return fmt.Errorf("read schema version: %w", err)
 	}
 
 	if current < 1 {
-		if _, err := s.pool.Exec(ctx, initSQL); err != nil {
+		if _, err := conn.Exec(ctx, initSQL); err != nil {
 			return fmt.Errorf("apply schema v1: %w", err)
 		}
 		log.Printf("schema: applied v1")
 	}
 	if current < 2 {
-		if _, err := s.pool.Exec(ctx, initSQLv2); err != nil {
+		if _, err := conn.Exec(ctx, initSQLv2); err != nil {
 			return fmt.Errorf("apply schema v2: %w", err)
 		}
 		log.Printf("schema: applied v2")

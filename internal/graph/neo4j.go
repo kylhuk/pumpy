@@ -47,6 +47,15 @@ func (w *Writer) EnsureConstraints(ctx context.Context) error {
 			nil)
 		return nil, err
 	})
+	if err != nil {
+		return err
+	}
+	_, err = sess.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		_, err := tx.Run(ctx,
+			`CREATE INDEX transfer_signature IF NOT EXISTS FOR ()-[t:TRANSFER]-() ON (t.signature)`,
+			nil)
+		return nil, err
+	})
 	return err
 }
 
@@ -86,18 +95,6 @@ func (w *Writer) UpsertEdges(ctx context.Context, seedSource string, edges []Edg
 	return err
 }
 
-func (w *Writer) UpsertWallet(ctx context.Context, address, source string) error {
-	sess := w.driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
-	defer sess.Close(ctx)
-	_, err := sess.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
-		_, err := tx.Run(ctx,
-			`MERGE (a:Wallet {address: $address})
-			   ON CREATE SET a.first_seen_at = datetime(), a.source = $source`,
-			map[string]any{"address": address, "source": source})
-		return nil, err
-	})
-	return err
-}
 
 func toEdgeParams(edges []Edge) []map[string]any {
 	out := make([]map[string]any, len(edges))

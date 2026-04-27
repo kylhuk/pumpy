@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -114,9 +113,7 @@ func PickNextWallet(ctx context.Context, pool *pgxpool.Pool, incrementalAge time
          FOR UPDATE SKIP LOCKED`,
 		int(incrementalAge.Seconds())).Scan(&w.Wallet, &done, &nextOffset)
 	if err != nil {
-		if rbErr := tx.Rollback(ctx); rbErr != nil {
-			log.Printf("rollback wallet_crawl_state lease: %v", rbErr)
-		}
+		tx.Rollback(ctx) // best-effort, ignore error — tx expires on gc anyway
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil, nil
 		}
@@ -128,12 +125,13 @@ func PickNextWallet(ctx context.Context, pool *pgxpool.Pool, incrementalAge time
 	}
 	if _, err := tx.Exec(ctx,
 		`UPDATE wallet_crawl_state SET last_started_at = now() WHERE wallet = $1`, w.Wallet); err != nil {
-		if rbErr := tx.Rollback(ctx); rbErr != nil {
-			log.Printf("rollback wallet_crawl_state lease: %v", rbErr)
-		}
+		tx.Rollback(ctx) // best-effort, ignore error — tx expires on gc anyway
 		return nil, nil, err
 	}
-	return &w, func(ctx context.Context) error { return tx.Commit(ctx) }, nil
+	if err := tx.Commit(ctx); err != nil {
+		return nil, nil, fmt.Errorf("commit lease: %w", err)
+	}
+	return &w, func(ctx context.Context) error { return nil }, nil
 }
 
 func MarkSeen(ctx context.Context, pool *pgxpool.Pool, wallet, sig string, slot, blockTime int64) (bool, error) {
