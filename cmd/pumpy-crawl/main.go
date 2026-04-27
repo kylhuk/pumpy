@@ -74,9 +74,6 @@ func main() {
 
 	log.Printf("pumpy-crawl: started (rps=%.1f, page_limit=%d)", cfg.MaxRPS, cfg.PageLimit)
 	for {
-		if ctx.Err() != nil {
-			return
-		}
 		lease, release, err := crawler.PickNextWallet(ctx, st.Pool(), cfg.IncrementalAge)
 		if err != nil {
 			log.Printf("pick: %v", err)
@@ -103,7 +100,7 @@ func main() {
 		} else {
 			log.Printf("crawl %s: pages=%d ok", lease.Wallet, pages)
 		}
-		if err := release(ctx); err != nil {
+		if err := release(context.Background()); err != nil {
 			log.Printf("release lease %s: %v", lease.Wallet, err)
 		}
 
