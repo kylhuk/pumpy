@@ -13,10 +13,6 @@ type SystemTransfer struct {
 	Lamports uint64
 }
 
-// DecodeSystemTransfer decodes a System Program Transfer instruction.
-// Returns nil (no error) if the instruction is not a transfer (wrong program,
-// wrong discriminator, too few accounts, or data too short).
-// Returns an error only for malformed base58 input.
 func DecodeSystemTransfer(programID string, accounts []string, dataB58 string) (*SystemTransfer, error) {
 	if programID != SystemProgram {
 		return nil, nil

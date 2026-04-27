@@ -65,6 +65,16 @@ func TestDecodeSystemTransfer_TooFewAccounts(t *testing.T) {
 	}
 }
 
+func TestDecodeSystemTransfer_EmptyData(t *testing.T) {
+	tx, err := DecodeSystemTransfer(SystemProgram, []string{"a", "b"}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tx != nil {
+		t.Error("want nil for empty data")
+	}
+}
+
 func TestDecodeSystemTransfer_TooShort(t *testing.T) {
 	// Only 4 bytes — valid discriminator but no lamport field.
 	buf := make([]byte, 4)

@@ -83,6 +83,73 @@ func TestNormalize_LoadedAddresses(t *testing.T) {
 	}
 }
 
+func TestNormalize_InlineProgramID(t *testing.T) {
+	// Some Dune responses supply programId as a direct string rather than
+	// programIdIndex. Verify resolveIx honours the string field.
+	raw := `{
+		"signature": "sigProg",
+		"block_slot": 1,
+		"block_time": 1,
+		"raw_transaction": {
+			"meta": {"err": null},
+			"transaction": {
+				"message": {
+					"accountKeys": ["AcctA", "AcctB"],
+					"instructions": [{"programId": "DirectProgram111", "accounts": [0, 1], "data": ""}]
+				}
+			}
+		}
+	}`
+	var dt DuneTransaction
+	if err := json.Unmarshal([]byte(raw), &dt); err != nil {
+		t.Fatal(err)
+	}
+	n, err := Normalize(dt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(n.Instructions) != 1 {
+		t.Fatalf("want 1 instruction, got %d", len(n.Instructions))
+	}
+	if n.Instructions[0].ProgramID != "DirectProgram111" {
+		t.Errorf("want ProgramID DirectProgram111, got %q", n.Instructions[0].ProgramID)
+	}
+}
+
+func TestNormalize_StringAccounts(t *testing.T) {
+	// Instructions can have accounts as []string (direct addresses) instead of
+	// []int indices. Verify resolveAccounts passes them through unchanged.
+	raw := `{
+		"signature": "sigStr",
+		"block_slot": 1,
+		"block_time": 1,
+		"raw_transaction": {
+			"meta": {"err": null},
+			"transaction": {
+				"message": {
+					"accountKeys": [],
+					"instructions": [{"programId": "SomeProg", "accounts": ["AddrOne", "AddrTwo"], "data": ""}]
+				}
+			}
+		}
+	}`
+	var dt DuneTransaction
+	if err := json.Unmarshal([]byte(raw), &dt); err != nil {
+		t.Fatal(err)
+	}
+	n, err := Normalize(dt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(n.Instructions) != 1 {
+		t.Fatalf("want 1 instruction, got %d", len(n.Instructions))
+	}
+	got := n.Instructions[0].Accounts
+	if len(got) != 2 || got[0] != "AddrOne" || got[1] != "AddrTwo" {
+		t.Errorf("want [AddrOne AddrTwo], got %v", got)
+	}
+}
+
 func TestNormalize_FailedTransaction(t *testing.T) {
 	raw := `{
 		"signature": "failsig",

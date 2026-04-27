@@ -170,7 +170,7 @@ func resolveAccounts(raw json.RawMessage, keys []string) ([]string, error) {
 	}
 	var asStrings []string
 	if err := json.Unmarshal(raw, &asStrings); err != nil {
-		return nil, fmt.Errorf("instruction accounts: not []int or []string")
+		return nil, fmt.Errorf("instruction accounts: not []int or []string: %w", err)
 	}
 	return asStrings, nil
 }
