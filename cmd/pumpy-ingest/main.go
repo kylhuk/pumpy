@@ -23,7 +23,7 @@ func main() {
 		log.Fatalf("store: %v", err)
 	}
 
-	if err := store.ApplySchema(ctx, st.Pool()); err != nil {
+	if err := st.ApplySchema(ctx); err != nil {
 		log.Fatalf("schema: %v", err)
 	}
 

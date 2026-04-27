@@ -5,6 +5,9 @@ go 1.26
 require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.7.2
+	github.com/mr-tron/base58 v1.2.0
+	github.com/neo4j/neo4j-go-driver/v5 v5.26.0
+	golang.org/x/time v0.8.0
 )
 
 require (
