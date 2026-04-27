@@ -1,0 +1,69 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pumpy
+      POSTGRES_USER: pumpy
+      POSTGRES_PASSWORD: pumpy
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pumpy"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Tuned for 8 GB RAM, write-heavy, analytical reads.
+    command: >
+      postgres
+        -c shared_buffers=1GB
+        -c work_mem=32MB
+        -c maintenance_work_mem=256MB
+        -c wal_buffers=64MB
+        -c checkpoint_completion_target=0.9
+        -c max_wal_size=4GB
+        -c synchronous_commit=off
+        -c effective_cache_size=4GB
+        -c max_connections=50
+
+  ingester:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://pumpy:pumpy@postgres:5432/pumpy?sslmode=disable
+      RETAIN_DAYS: "60"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  neo4j:
+    image: neo4j:5.26-community
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-pumpypumpy}
+      NEO4J_PLUGINS: '["graph-data-science"]'
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 1G
+      NEO4J_server_memory_pagecache_size: 512m
+      NEO4J_dbms_security_procedures_unrestricted: gds.*
+    volumes:
+      - neo4jdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
+  neo4jdata:
