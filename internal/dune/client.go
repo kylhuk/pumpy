@@ -49,9 +49,19 @@ func (c *Client) GetTransactions(ctx context.Context, address string, limit int,
 
 	var lastResp *http.Response
 	for attempt := 0; attempt <= c.maxRetries; attempt++ {
+		// Wait out the backoff before consuming a rate-limit token.
+		if attempt > 0 {
+			select {
+			case <-time.After(backoff[min(attempt-1, len(backoff)-1)]):
+			case <-ctx.Done():
+				return nil, nil, ctx.Err()
+			}
+		}
+
 		if err := c.limiter.Wait(ctx); err != nil {
 			return nil, nil, err
 		}
+
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 		if err != nil {
 			return nil, nil, err
@@ -62,8 +72,7 @@ func (c *Client) GetTransactions(ctx context.Context, address string, limit int,
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			if attempt < c.maxRetries {
-				time.Sleep(backoff[min(attempt, len(backoff)-1)])
-				continue
+				continue // sleep handled at top of next iteration
 			}
 			return nil, nil, fmt.Errorf("http: %w", err)
 		}
@@ -79,8 +88,7 @@ func (c *Client) GetTransactions(ctx context.Context, address string, limit int,
 		if resp.StatusCode == 429 || resp.StatusCode >= 500 {
 			resp.Body.Close()
 			if attempt < c.maxRetries {
-				time.Sleep(backoff[min(attempt, len(backoff)-1)])
-				continue
+				continue // sleep handled at top of next iteration
 			}
 			return nil, resp, fmt.Errorf("dune retries exhausted, last status %d", resp.StatusCode)
 		}
