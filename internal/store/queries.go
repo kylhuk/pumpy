@@ -7,17 +7,30 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type TopEarner struct {
-	Trader            string
-	RealizedPnLSOL    float64
-	RealizedPnLLamps  int64
+// Order controls result ordering for ranked queries.
+type Order int
+
+const (
+	OrderDesc Order = iota
+	OrderAsc
+)
+
+type PnLEntry struct {
+	Trader           string
+	RealizedPnLSOL   float64
+	RealizedPnLLamps int64
 }
 
-// TopEarners returns wallets ranked by realized PnL (closed positions only) over the given window.
-// window must be a valid Postgres interval string, e.g. "24 hours", "7 days", "14 days".
-func TopEarners(ctx context.Context, pool *pgxpool.Pool, window string, limit int) ([]TopEarner, error) {
+// RealizedPnL returns wallets ranked by realized PnL (closed positions only).
+// window must be a valid Postgres interval string (e.g. "24 hours").
+// order controls whether results are sorted DESC (top earners) or ASC (worst performers).
+func RealizedPnL(ctx context.Context, pool *pgxpool.Pool, window string, limit int, order Order) ([]PnLEntry, error) {
 	if limit <= 0 {
 		limit = 100
+	}
+	dir := "DESC"
+	if order == OrderAsc {
+		dir = "ASC"
 	}
 	sql := fmt.Sprintf(`
 WITH last_bal AS (
@@ -41,8 +54,8 @@ flows AS (
 )
 SELECT trader, pnl
 FROM   flows
-ORDER  BY pnl DESC
-LIMIT  $1`, window, window)
+ORDER  BY pnl %s
+LIMIT  $1`, window, window, dir)
 
 	rows, err := pool.Query(ctx, sql, limit)
 	if err != nil {
@@ -50,9 +63,9 @@ LIMIT  $1`, window, window)
 	}
 	defer rows.Close()
 
-	var out []TopEarner
+	var out []PnLEntry
 	for rows.Next() {
-		var e TopEarner
+		var e PnLEntry
 		if err := rows.Scan(&e.Trader, &e.RealizedPnLLamps); err != nil {
 			return nil, err
 		}

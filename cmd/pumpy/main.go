@@ -44,7 +44,7 @@ func runTop(window string, limit int) {
 		log.Fatalf("connect: %v", err)
 	}
 
-	earners, err := store.TopEarners(ctx, st.Pool(), pg, limit)
+	earners, err := store.RealizedPnL(ctx, st.Pool(), pg, limit, store.OrderDesc)
 	if err != nil {
 		log.Fatalf("query: %v", err)
 	}
