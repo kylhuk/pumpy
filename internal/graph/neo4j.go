@@ -29,7 +29,7 @@ type Edge struct {
 // NewFromEnv creates a Writer using NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD env vars.
 // connectTimeout caps the VerifyConnectivity call; use a short value (e.g. 3s) for snapshot commands.
 func NewFromEnv(ctx context.Context, connectTimeout time.Duration) (*Writer, error) {
-	uri := envOrDefault("NEO4J_URI", "bolt://localhost:7687")
+	uri := envOrDefault("NEO4J_URI", "bolt://localhost:17687")
 	user := envOrDefault("NEO4J_USER", "neo4j")
 	password := envOrDefault("NEO4J_PASSWORD", "pumpypumpy")
 

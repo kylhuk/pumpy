@@ -19,6 +19,16 @@
       "title": "Overview",
       "reports": [
         {
+          "id": 8,
+          "title": "",
+          "query": "## Wallet Graph\n\nTrack pump.fun trader wallets and their off-exchange SOL connections.\n\n- **pump_seed** — confirmed pump.fun trader (seeded from on-chain history)\n- **discovered** — counterparty found in direct SOL transfer history outside pump.fun\n- Every edge is a SOL *system transfer* that did **not** touch a pump.fun program\n\n> Use **Firefox or Chrome** — Brave blocks the bolt WebSocket.",
+          "width": 12,
+          "height": 2,
+          "type": "text",
+          "selection": {},
+          "settings": {}
+        },
+        {
           "id": 1,
           "title": "Total Wallets",
           "query": "MATCH (w:Wallet) RETURN count(w) AS Total",
@@ -26,7 +36,7 @@
           "height": 2,
           "type": "value",
           "selection": {},
-          "settings": {}
+          "settings": { "fontSize": 36, "textAlign": "center", "verticalAlign": "middle" }
         },
         {
           "id": 2,
@@ -36,7 +46,7 @@
           "height": 2,
           "type": "value",
           "selection": {},
-          "settings": {}
+          "settings": { "fontSize": 36, "textAlign": "center", "verticalAlign": "middle" }
         },
         {
           "id": 3,
@@ -46,7 +56,7 @@
           "height": 2,
           "type": "value",
           "selection": {},
-          "settings": {}
+          "settings": { "fontSize": 36, "textAlign": "center", "verticalAlign": "middle" }
         },
         {
           "id": 4,
@@ -56,7 +66,47 @@
           "height": 2,
           "type": "value",
           "selection": {},
-          "settings": {}
+          "settings": { "fontSize": 36, "textAlign": "center", "verticalAlign": "middle" }
+        },
+        {
+          "id": 7,
+          "title": "Total SOL Volume",
+          "query": "MATCH ()-[t:TRANSFER]->() RETURN round(sum(t.amount_lamports)/1e9*1000)/1000 AS SOL",
+          "width": 3,
+          "height": 2,
+          "type": "value",
+          "selection": {},
+          "settings": { "fontSize": 36, "textAlign": "center", "verticalAlign": "middle" }
+        },
+        {
+          "id": 9,
+          "title": "Avg Transfer Size",
+          "query": "MATCH ()-[t:TRANSFER]->() RETURN round(avg(t.amount_lamports)/1e9*1000)/1000 AS SOL",
+          "width": 3,
+          "height": 2,
+          "type": "value",
+          "selection": {},
+          "settings": { "fontSize": 36, "textAlign": "center", "verticalAlign": "middle" }
+        },
+        {
+          "id": 70,
+          "title": "Active Wallets (7d)",
+          "query": "MATCH (w:Wallet)-[t:TRANSFER]-() WHERE t.block_time >= timestamp()/1000 - 7*86400 RETURN count(DISTINCT w) AS Wallets",
+          "width": 3,
+          "height": 2,
+          "type": "value",
+          "selection": {},
+          "settings": { "fontSize": 36, "textAlign": "center", "verticalAlign": "middle" }
+        },
+        {
+          "id": 71,
+          "title": "Data Freshness",
+          "query": "MATCH ()-[t:TRANSFER]->() RETURN toString(date(datetime({epochSeconds: max(t.block_time)}))) AS Latest",
+          "width": 3,
+          "height": 2,
+          "type": "value",
+          "selection": {},
+          "settings": { "fontSize": 20, "textAlign": "center", "verticalAlign": "middle" }
         },
         {
           "id": 5,
@@ -65,8 +115,18 @@
           "width": 8,
           "height": 3,
           "type": "line",
-          "selection": {},
-          "settings": {}
+          "selection": { "x": "Date", "value": ["Transfers"] },
+          "settings": {
+            "colors": "set2",
+            "lineWidth": 3,
+            "pointSize": 4,
+            "showGrid": true,
+            "legend": false,
+            "curve": "linear",
+            "marginLeft": 60,
+            "marginRight": 24,
+            "marginBottom": 50
+          }
         },
         {
           "id": 6,
@@ -76,33 +136,30 @@
           "height": 3,
           "type": "bar",
           "selection": {},
-          "settings": {}
-        },
-        {
-          "id": 7,
-          "title": "Total SOL Volume",
-          "query": "MATCH ()-[t:TRANSFER]->() RETURN round(sum(t.amount_lamports)/1e9*1000)/1000 AS SOL",
-          "width": 4,
-          "height": 2,
-          "type": "value",
-          "selection": {},
-          "settings": {}
-        },
-        {
-          "id": 8,
-          "title": "",
-          "query": "## Schema\n- **pump_seed** \u2014 confirmed pump.fun trader (seeded from on-chain trade history)\n- **discovered** \u2014 counterparty found via off-platform SOL transfers\n- Every edge is a SOL *system transfer* that did **not** touch a pump.fun program\n\n> **Browser note:** Brave blocks the bolt WebSocket \u2014 use Firefox or Chrome.",
-          "width": 8,
-          "height": 2,
-          "type": "text",
-          "selection": {},
-          "settings": {}
+          "settings": {
+            "colors": "set2",
+            "barValues": true,
+            "legend": false,
+            "padding": 0.4,
+            "marginLeft": 80,
+            "marginBottom": 50
+          }
         }
       ]
     },
     {
       "title": "Identity Hubs",
       "reports": [
+        {
+          "id": 18,
+          "title": "",
+          "query": "## Identity Hubs\nWallets bridging ≥ 2 confirmed pump.fun traders via off-exchange SOL transfers. The table ranks hubs by seed-wallet count; select one to inspect its neighborhood and balance flow.",
+          "width": 12,
+          "height": 1,
+          "type": "text",
+          "selection": {},
+          "settings": {}
+        },
         {
           "id": 10,
           "title": "Third-Party Wallets Bridging Multiple Pump.fun Accounts",
@@ -111,59 +168,109 @@
           "height": 6,
           "type": "table",
           "selection": {},
-          "settings": {}
+          "settings": {
+            "columnWidths": "[3,1,1,1]",
+            "columnWidthsType": "Relative (%)",
+            "compact": true,
+            "allowDownload": true
+          }
         },
         {
           "id": 11,
           "title": "Select Hub",
           "query": "MATCH (h:Wallet {source:\"discovered\"})-[:TRANSFER]-(s:Wallet {source:\"pump_seed\"}) WITH h, count(DISTINCT s) AS n WHERE n >= 2 RETURN h.address AS value ORDER BY n DESC LIMIT 100",
-          "width": 6,
+          "width": 4,
           "height": 2,
           "type": "select",
           "selection": {},
           "settings": {
             "parameterName": "neodash_hub",
             "type": "Custom Query",
-            "helperText": "Pick a wallet bridging multiple pump.fun accounts"
+            "helperText": "Pick a wallet bridging multiple pump.fun accounts",
+            "autoSelectFirstValue": true,
+            "searchType": "CONTAINS"
           }
         },
         {
           "id": 12,
           "title": "Net SOL Flow (+ = inflow)",
           "query": "OPTIONAL MATCH (h:Wallet {address:$neodash_hub}) CALL { WITH h OPTIONAL MATCH (h)<-[ti:TRANSFER]-() RETURN coalesce(sum(ti.amount_lamports),0) AS inbound } CALL { WITH h OPTIONAL MATCH (h)-[to:TRANSFER]->() RETURN coalesce(sum(to.amount_lamports),0) AS outbound } RETURN coalesce(round((inbound-outbound)/1e9*1000)/1000, 0) AS NetSOL",
-          "width": 3,
+          "width": 2,
           "height": 2,
           "type": "value",
           "selection": {},
-          "settings": {}
+          "settings": { "fontSize": 28, "textAlign": "center", "verticalAlign": "middle" }
         },
         {
-          "id": 13,
-          "title": "",
-          "query": "> Select a hub wallet above to explore its connections",
-          "width": 3,
+          "id": 15,
+          "title": "Transfers",
+          "query": "OPTIONAL MATCH (h:Wallet {address:$neodash_hub})-[t:TRANSFER]-() RETURN coalesce(count(t), 0) AS Transfers",
+          "width": 2,
           "height": 2,
-          "type": "text",
+          "type": "value",
           "selection": {},
-          "settings": {}
+          "settings": { "fontSize": 28, "textAlign": "center", "verticalAlign": "middle" }
+        },
+        {
+          "id": 16,
+          "title": "Counterparties",
+          "query": "OPTIONAL MATCH (h:Wallet {address:$neodash_hub})-[:TRANSFER]-(c) RETURN coalesce(count(DISTINCT c), 0) AS Counterparties",
+          "width": 2,
+          "height": 2,
+          "type": "value",
+          "selection": {},
+          "settings": { "fontSize": 28, "textAlign": "center", "verticalAlign": "middle" }
+        },
+        {
+          "id": 17,
+          "title": "SOL Touched",
+          "query": "OPTIONAL MATCH (h:Wallet {address:$neodash_hub})-[t:TRANSFER]-() RETURN coalesce(round(sum(t.amount_lamports)/1e9*1000)/1000, 0) AS SOL",
+          "width": 2,
+          "height": 2,
+          "type": "value",
+          "selection": {},
+          "settings": { "fontSize": 28, "textAlign": "center", "verticalAlign": "middle" }
         },
         {
           "id": 14,
           "title": "Hub Neighborhood",
           "query": "OPTIONAL MATCH (h:Wallet {address:$neodash_hub}) WITH h WHERE h IS NOT NULL MATCH (h)-[t:TRANSFER]-(s:Wallet) RETURN h, t, s LIMIT 150",
           "width": 12,
-          "height": 5,
+          "height": 6,
           "type": "graph",
           "selection": {
             "Wallet": "address"
           },
-          "settings": {}
+          "settings": {
+            "nodeColorScheme": "set2",
+            "defaultNodeSize": 4,
+            "defaultRelWidth": 1,
+            "nodeLabelFontSize": 4.5,
+            "relLabelFontSize": 3,
+            "layout": "force-directed",
+            "lockable": true,
+            "fixNodeAfterDrag": true,
+            "showPropertiesOnHover": true,
+            "showPropertiesOnClick": true,
+            "enableExploration": false,
+            "noDataMessage": "Pick a hub above to render its 1-hop neighborhood."
+          }
         }
       ]
     },
     {
       "title": "Wallet Inspector",
       "reports": [
+        {
+          "id": 27,
+          "title": "",
+          "query": "## Wallet Inspector\nPaste any Solana wallet address below to explore its type, 2-hop neighborhood, top counterparties, and recent transfer history.",
+          "width": 12,
+          "height": 1,
+          "type": "text",
+          "selection": {},
+          "settings": {}
+        },
         {
           "id": 20,
           "title": "Wallet Address",
@@ -175,66 +282,112 @@
           "settings": {
             "parameterName": "neodash_wallet",
             "type": "Free Text",
-            "helperText": "Paste a Solana wallet address"
+            "helperText": "Paste a Solana wallet address",
+            "clearParameterOnFieldClear": true
           }
         },
         {
           "id": 21,
           "title": "Type",
-          "query": "OPTIONAL MATCH (w:Wallet {address:$neodash_wallet}) RETURN coalesce(w.source, '') AS Type",
-          "width": 3,
+          "query": "OPTIONAL MATCH (w:Wallet {address:$neodash_wallet}) RETURN coalesce(w.source, '— pick a wallet —') AS Type",
+          "width": 2,
           "height": 2,
           "type": "value",
           "selection": {},
-          "settings": {}
+          "settings": { "fontSize": 18, "textAlign": "center", "verticalAlign": "middle" }
         },
         {
           "id": 22,
           "title": "First Seen",
-          "query": "OPTIONAL MATCH (w:Wallet {address:$neodash_wallet}) RETURN coalesce(toString(w.first_seen_at), '') AS FirstSeen",
-          "width": 3,
+          "query": "OPTIONAL MATCH (w:Wallet {address:$neodash_wallet}) RETURN coalesce(toString(w.first_seen_at), '—') AS FirstSeen",
+          "width": 2,
           "height": 2,
           "type": "value",
           "selection": {},
-          "settings": {}
+          "settings": { "fontSize": 14, "textAlign": "center", "verticalAlign": "middle" }
+        },
+        {
+          "id": 26,
+          "title": "Transfers",
+          "query": "OPTIONAL MATCH (w:Wallet {address:$neodash_wallet})-[t:TRANSFER]-() RETURN coalesce(count(t), 0) AS Transfers",
+          "width": 2,
+          "height": 2,
+          "type": "value",
+          "selection": {},
+          "settings": { "fontSize": 28, "textAlign": "center", "verticalAlign": "middle" }
         },
         {
           "id": 23,
           "title": "2-Hop Neighborhood",
           "query": "OPTIONAL MATCH (w:Wallet {address:$neodash_wallet}) WITH w WHERE w IS NOT NULL MATCH p = (w)-[:TRANSFER*1..2]-(n:Wallet) RETURN p LIMIT 100",
-          "width": 7,
-          "height": 5,
+          "width": 12,
+          "height": 6,
           "type": "graph",
           "selection": {
             "Wallet": "address"
           },
-          "settings": {}
+          "settings": {
+            "nodeColorScheme": "set2",
+            "defaultNodeSize": 4,
+            "defaultRelWidth": 1,
+            "nodeLabelFontSize": 4.5,
+            "relLabelFontSize": 3,
+            "layout": "force-directed",
+            "lockable": true,
+            "fixNodeAfterDrag": true,
+            "showPropertiesOnHover": true,
+            "showPropertiesOnClick": true,
+            "enableExploration": false,
+            "noDataMessage": "Paste a wallet address above to inspect its 2-hop neighborhood."
+          }
         },
         {
           "id": 24,
           "title": "Top Counterparties",
           "query": "OPTIONAL MATCH (w:Wallet {address:$neodash_wallet}) WITH w WHERE w IS NOT NULL MATCH (w)-[t:TRANSFER]-(c:Wallet) WITH c, sum(CASE WHEN startNode(t)=w THEN t.amount_lamports ELSE 0 END)/1e9 AS sol_out, sum(CASE WHEN endNode(t)=w THEN t.amount_lamports ELSE 0 END)/1e9 AS sol_in, count(t) AS txs RETURN c.address AS Wallet, c.source AS Type, txs AS Transfers, round(sol_in*1000)/1000 AS SOLIn, round(sol_out*1000)/1000 AS SOLOut, round((sol_in-sol_out)*1000)/1000 AS NetSOL ORDER BY txs DESC LIMIT 50",
-          "width": 5,
-          "height": 7,
+          "width": 12,
+          "height": 6,
           "type": "table",
           "selection": { "Wallet": true, "Type": true, "Transfers": true, "SOLIn": true, "SOLOut": true, "NetSOL": true },
-          "settings": {}
+          "settings": {
+            "columnWidths": "[3,1,1,1,1,1]",
+            "columnWidthsType": "Relative (%)",
+            "compact": true,
+            "allowDownload": true,
+            "noDataMessage": "Paste a wallet address above to see its counterparties."
+          }
         },
         {
           "id": 25,
           "title": "Recent Transfers",
           "query": "OPTIONAL MATCH (a:Wallet {address:$neodash_wallet}) WITH a WHERE a IS NOT NULL MATCH (a)-[t:TRANSFER]-(b:Wallet) WITH a, t, b, CASE WHEN startNode(t)=a THEN \"OUT\" ELSE \"IN\" END AS direction ORDER BY t.block_time DESC LIMIT 50 RETURN datetime({epochSeconds: t.block_time}) AS Time, direction AS Dir, round(t.amount_lamports/1e9*1000)/1000 AS SOL, b.address AS Counterparty, b.source AS Type, t.signature AS Signature",
           "width": 12,
-          "height": 6,
+          "height": 5,
           "type": "table",
           "selection": { "Time": true, "Dir": true, "SOL": true, "Counterparty": true, "Type": true, "Signature": true },
-          "settings": {}
+          "settings": {
+            "columnWidths": "[2,1,1,3,1,3]",
+            "columnWidthsType": "Relative (%)",
+            "compact": true,
+            "allowDownload": true,
+            "noDataMessage": "Paste a wallet address above to see recent transfers."
+          }
         }
       ]
     },
     {
       "title": "Money Flow",
       "reports": [
+        {
+          "id": 29,
+          "title": "",
+          "query": "## Money Flow\nTop wallet pairs by total SOL volume, the single largest individual transfers, and a sankey diagram of dominant flows.",
+          "width": 12,
+          "height": 1,
+          "type": "text",
+          "selection": {},
+          "settings": {}
+        },
         {
           "id": 30,
           "title": "Top Wallet Pairs by Volume",
@@ -243,7 +396,12 @@
           "height": 7,
           "type": "table",
           "selection": {},
-          "settings": {}
+          "settings": {
+            "columnWidths": "[3,1,3,1,1,1]",
+            "columnWidthsType": "Relative (%)",
+            "compact": true,
+            "allowDownload": true
+          }
         },
         {
           "id": 31,
@@ -253,17 +411,30 @@
           "height": 7,
           "type": "table",
           "selection": {},
-          "settings": {}
+          "settings": {
+            "columnWidths": "[3,3,1,2,3]",
+            "columnWidthsType": "Relative (%)",
+            "compact": true,
+            "allowDownload": true
+          }
         },
         {
           "id": 32,
           "title": "SOL Flow (Top Pairs)",
-          "query": "MATCH (a:Wallet)-[t:TRANSFER]->(b:Wallet) WITH a, b, sum(t.amount_lamports)/1e9 AS sol ORDER BY sol DESC LIMIT 25 RETURN a.address AS from, b.address AS to, sol AS value",
+          "query": "MATCH (a:Wallet)-[t:TRANSFER]->(b:Wallet) WITH a, b, sum(t.amount_lamports)/1e9 AS sol ORDER BY sol DESC LIMIT 15 RETURN a.address AS from, b.address AS to, sol AS value",
           "width": 12,
           "height": 6,
           "type": "sankey",
           "selection": { "index": "from", "key": "to", "value": "value" },
-          "settings": {}
+          "settings": {
+            "colors": "set2",
+            "nodeOpacity": 0.85,
+            "linkOpacity": 0.55,
+            "nodeThickness": 14,
+            "nodeSpacing": 10,
+            "labelPosition": "outside",
+            "layout": "horizontal"
+          }
         }
       ]
     },
@@ -271,14 +442,34 @@
       "title": "Time Patterns",
       "reports": [
         {
+          "id": 39,
+          "title": "",
+          "query": "## Time Patterns\nDaily transfer counts by wallet-pair type over the last 60 days, plus hourly (UTC) and day-of-week distributions.",
+          "width": 12,
+          "height": 1,
+          "type": "text",
+          "selection": {},
+          "settings": {}
+        },
+        {
           "id": 40,
           "title": "Transfers Per Day by Wallet Pair Type (last 60d)",
-          "query": "MATCH (a:Wallet)-[t:TRANSFER]->(b:Wallet) WITH date(datetime({epochSeconds: t.block_time})) AS day, CASE WHEN a.source=\"pump_seed\" AND b.source=\"pump_seed\" THEN \"seed\u2192seed\" WHEN a.source=\"discovered\" AND b.source=\"discovered\" THEN \"disc\u2192disc\" ELSE \"seed\u2194disc\" END AS kind, count(*) AS n WHERE day >= date() - duration({days: 60}) WITH day, sum(CASE WHEN kind=\"seed\u2192seed\" THEN n ELSE 0 END) AS SeedToSeed, sum(CASE WHEN kind=\"disc\u2192disc\" THEN n ELSE 0 END) AS DiscToDisc, sum(CASE WHEN kind=\"seed\u2194disc\" THEN n ELSE 0 END) AS SeedToDisc RETURN day AS Date, SeedToSeed, DiscToDisc, SeedToDisc ORDER BY day",
+          "query": "MATCH (a:Wallet)-[t:TRANSFER]->(b:Wallet) WITH date(datetime({epochSeconds: t.block_time})) AS day, CASE WHEN a.source=\"pump_seed\" AND b.source=\"pump_seed\" THEN \"seed→seed\" WHEN a.source=\"discovered\" AND b.source=\"discovered\" THEN \"disc→disc\" ELSE \"seed↔disc\" END AS kind, count(*) AS n WHERE day >= date() - duration({days: 60}) WITH day, sum(CASE WHEN kind=\"seed→seed\" THEN n ELSE 0 END) AS SeedToSeed, sum(CASE WHEN kind=\"disc→disc\" THEN n ELSE 0 END) AS DiscToDisc, sum(CASE WHEN kind=\"seed↔disc\" THEN n ELSE 0 END) AS SeedToDisc RETURN day AS Date, SeedToSeed, DiscToDisc, SeedToDisc ORDER BY day",
           "width": 12,
           "height": 4,
           "type": "line",
-          "selection": {},
-          "settings": {}
+          "selection": { "x": "Date", "value": ["SeedToSeed", "DiscToDisc", "SeedToDisc"] },
+          "settings": {
+            "colors": "set1",
+            "lineWidth": 2,
+            "pointSize": 3,
+            "showGrid": true,
+            "legend": true,
+            "curve": "linear",
+            "marginLeft": 60,
+            "marginRight": 100,
+            "marginBottom": 50
+          }
         },
         {
           "id": 41,
@@ -288,7 +479,14 @@
           "height": 3,
           "type": "bar",
           "selection": {},
-          "settings": {}
+          "settings": {
+            "colors": "set2",
+            "barValues": true,
+            "legend": false,
+            "padding": 0.3,
+            "marginLeft": 60,
+            "marginBottom": 50
+          }
         },
         {
           "id": 42,
@@ -298,7 +496,14 @@
           "height": 3,
           "type": "bar",
           "selection": {},
-          "settings": {}
+          "settings": {
+            "colors": "set2",
+            "barValues": true,
+            "legend": false,
+            "padding": 0.3,
+            "marginLeft": 60,
+            "marginBottom": 50
+          }
         }
       ]
     }

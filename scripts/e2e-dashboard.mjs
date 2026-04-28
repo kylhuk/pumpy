@@ -37,7 +37,9 @@ const browser = await firefox.launch({
   headless: true,
 });
 
-const ctx  = await browser.newContext({ ignoreHTTPSErrors: true });
+// 1100×800: below NeoDash's xl breakpoint (1280px) to keep the horizontal tab
+// bar visible (at xl+, NeoDash switches to a sidebar that hides [role="tab"]).
+const ctx  = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1100, height: 800 } });
 const page = await ctx.newPage();
 page.setDefaultTimeout(PAGE_TIMEOUT_MS);
 
