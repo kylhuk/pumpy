@@ -151,8 +151,20 @@ func crawlerTile(d DashboardData) string {
 	return tile("Crawler Queue", val)
 }
 
-// buildTable builds a go-pretty table and returns its rendered string.
+// BuildTable builds a go-pretty table and returns its rendered string.
 // When tty is false, plain ASCII style is used so the output is pipe-friendly.
+func BuildTable(headers []string, rows [][]string, tty bool) string {
+	return buildTable(headers, rows, tty)
+}
+
+// NewTile renders a labelled value tile using the package tile style.
+func NewTile(label, value string) string { return tile(label, value) }
+
+// NewTileStyled renders a tile where the value is pre-styled by the caller.
+func NewTileStyled(label, value string, valueStyle lipgloss.Style) string {
+	return tileStyle.Render(labelStyle.Render(label) + "\n" + valueStyle.Render(value))
+}
+
 func buildTable(headers []string, rows [][]string, tty bool) string {
 	t := table.NewWriter()
 

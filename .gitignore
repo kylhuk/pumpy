@@ -1,3 +1,4 @@
 .worktrees/
 bin/
 .env
+bot.json

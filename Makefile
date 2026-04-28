@@ -7,6 +7,7 @@ build: tidy
 	$(GO) build -o bin/pumpy-ingest ./cmd/pumpy-ingest
 	$(GO) build -o bin/pumpy        ./cmd/pumpy
 	$(GO) build -o bin/pumpy-crawl  ./cmd/pumpy-crawl
+	$(GO) build -o bin/pumpy-bot    ./cmd/pumpy-bot
 
 tidy:
 	$(GO) mod tidy

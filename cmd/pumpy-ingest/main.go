@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"pumpy/internal/fanout"
 	"pumpy/internal/portal"
 	"pumpy/internal/pruner"
 	"pumpy/internal/store"
@@ -34,8 +35,12 @@ func main() {
 	}
 	log.Printf("ingester: loaded %d active mints from DB", len(activeMints))
 
+	fanoutAddr := env("FANOUT_ADDR", "127.0.0.1:9988")
+	fs := fanout.NewServer(fanoutAddr)
+	go fs.Listen()
+
 	h := &handler{st: st}
-	client := portal.NewClient(h)
+	client := portal.NewClient(h, fs)
 	h.client = client
 	client.SetActiveMints(activeMints)
 

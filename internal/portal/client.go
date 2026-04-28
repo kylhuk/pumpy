@@ -21,17 +21,24 @@ type Handler interface {
 
 // Client manages the single pumpportal WebSocket connection.
 type Client struct {
-	handler    Handler
-	mu         sync.Mutex
-	conn       *websocket.Conn
+	handlers    []Handler
+	mu          sync.Mutex
+	conn        *websocket.Conn
 	activeMints map[string]struct{}
 }
 
-func NewClient(h Handler) *Client {
+func NewClient(handlers ...Handler) *Client {
 	return &Client{
-		handler:     h,
+		handlers:    handlers,
 		activeMints: make(map[string]struct{}),
 	}
+}
+
+// AddHandler registers an additional event handler. Must be called before Run.
+func (c *Client) AddHandler(h Handler) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.handlers = append(c.handlers, h)
 }
 
 // SubscribeToken adds a mint to subscribeTokenTrade and to the active set.
@@ -166,23 +173,32 @@ func (c *Client) dispatch(msg []byte) {
 		return
 	}
 
+	c.mu.Lock()
+	handlers := c.handlers
+	c.mu.Unlock()
+
 	switch raw.TxType {
 	case "create":
 		var t NewToken
 		if err := json.Unmarshal(raw.Raw, &t); err == nil {
-			c.handler.OnNewToken(t)
+			for _, h := range handlers {
+				h.OnNewToken(t)
+			}
 		}
 	case "buy", "sell":
 		var t Trade
 		if err := json.Unmarshal(raw.Raw, &t); err == nil {
-			c.handler.OnTrade(t)
+			for _, h := range handlers {
+				h.OnTrade(t)
+			}
 		}
 	default:
-		// Check for migration (no txType on migration events — uses "mint" presence).
 		if raw.TxType == "" {
 			var m Migration
 			if err := json.Unmarshal(raw.Raw, &m); err == nil && m.Mint != "" {
-				c.handler.OnMigration(m)
+				for _, h := range handlers {
+					h.OnMigration(m)
+				}
 			}
 		}
 	}

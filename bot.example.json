@@ -1,0 +1,27 @@
+{
+  "target_wallet": "FWNmzY26FnsmpaWPQQJXQ24PQAyKtDByJz9HMa24s1z5",
+  "buy_sol": 0.01,
+  "slippage_pct": 50,
+  "priority_fee_sol": 0.00005,
+  "pool": "pump",
+
+  "tier_s_ratio": 1.1,
+  "tier_s_pct": 5,
+  "tier_q_ratio": 0.5,
+  "tier_q_pct": 25,
+  "tier_all_pct": 100,
+  "evaluator_interval_ms": 200,
+
+  "fanout_addr": "127.0.0.1:9988",
+
+  "lightning": {
+    "api_key": "YOUR_PUMPPORTAL_LIGHTNING_API_KEY",
+    "wallet_pubkey": "YOUR_WALLET_PUBLIC_KEY"
+  },
+
+  "solana_rpc": "https://api.mainnet-beta.solana.com",
+  "balance_refresh_ms": 1000,
+
+  "dashboard_refresh_ms": 250,
+  "history_size": 100
+}

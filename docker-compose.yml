@@ -34,9 +34,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    ports:
+      - "127.0.0.1:9988:9988"
     environment:
       DATABASE_URL: postgres://pumpy:pumpy@postgres:5432/pumpy?sslmode=disable
       RETAIN_DAYS: "60"
+      FANOUT_ADDR: "0.0.0.0:9988"
     logging:
       driver: json-file
       options:
