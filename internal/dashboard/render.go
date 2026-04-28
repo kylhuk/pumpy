@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
@@ -35,9 +36,15 @@ var (
 	sectionTitleStyle = lipgloss.NewStyle().Bold(true)
 )
 
+var (
+	isTTYOnce sync.Once
+	isTTYVal  bool
+)
+
 // IsTTY reports whether stdout is attached to a terminal.
 func IsTTY() bool {
-	return term.IsTerminal(int(os.Stdout.Fd()))
+	isTTYOnce.Do(func() { isTTYVal = term.IsTerminal(int(os.Stdout.Fd())) })
+	return isTTYVal
 }
 
 // StatusDot returns a coloured "●" based on data age.
@@ -199,7 +206,7 @@ func pnlRows(r Result[[]PnLRow]) [][]string {
 		rows = append(rows, []string{
 			fmt.Sprintf("%d", p.Rank),
 			p.Wallet,
-			fmt.Sprintf("%+.4f", p.PnLSOL),
+			fmt.Sprintf("%.4f", p.PnLSOL),
 		})
 	}
 	return rows
