@@ -10,6 +10,10 @@
       "neodash_hub": ""
     }
   },
+  "extensions": {
+    "advanced-charts": { "active": true },
+    "styling": { "active": true }
+  },
   "pages": [
     {
       "title": "Overview",
@@ -20,7 +24,7 @@
           "query": "MATCH (w:Wallet) RETURN count(w) AS Total",
           "width": 3,
           "height": 2,
-          "type": "single-value",
+          "type": "value",
           "selection": {},
           "settings": {}
         },
@@ -30,7 +34,7 @@
           "query": "MATCH (w:Wallet {source:\"pump_seed\"}) RETURN count(w) AS Total",
           "width": 3,
           "height": 2,
-          "type": "single-value",
+          "type": "value",
           "selection": {},
           "settings": {}
         },
@@ -40,7 +44,7 @@
           "query": "MATCH (w:Wallet {source:\"discovered\"}) RETURN count(w) AS Total",
           "width": 3,
           "height": 2,
-          "type": "single-value",
+          "type": "value",
           "selection": {},
           "settings": {}
         },
@@ -50,7 +54,7 @@
           "query": "MATCH ()-[t:TRANSFER]->() RETURN count(t) AS Total",
           "width": 3,
           "height": 2,
-          "type": "single-value",
+          "type": "value",
           "selection": {},
           "settings": {}
         },
@@ -80,17 +84,17 @@
           "query": "MATCH ()-[t:TRANSFER]->() RETURN round(sum(t.amount_lamports)/1e9*1000)/1000 AS SOL",
           "width": 4,
           "height": 2,
-          "type": "single-value",
+          "type": "value",
           "selection": {},
           "settings": {}
         },
         {
           "id": 8,
           "title": "",
-          "query": "## Schema\n- **pump_seed** \u2014 confirmed pump.fun trader (seeded from on-chain trade history)\n- **discovered** \u2014 counterparty found via off-platform SOL transfers\n- Every edge is a SOL *system transfer* that did **not** touch a pump.fun program",
+          "query": "## Schema\n- **pump_seed** \u2014 confirmed pump.fun trader (seeded from on-chain trade history)\n- **discovered** \u2014 counterparty found via off-platform SOL transfers\n- Every edge is a SOL *system transfer* that did **not** touch a pump.fun program\n\n> **Browser note:** Brave blocks the bolt WebSocket \u2014 use Firefox or Chrome.",
           "width": 8,
           "height": 2,
-          "type": "markdown",
+          "type": "text",
           "selection": {},
           "settings": {}
         }
@@ -104,7 +108,7 @@
           "title": "Third-Party Wallets Bridging Multiple Pump.fun Accounts",
           "query": "MATCH (h:Wallet {source:\"discovered\"})-[t:TRANSFER]-(s:Wallet {source:\"pump_seed\"}) WITH DISTINCT h, t, s WITH h, count(DISTINCT s) AS seeds, count(DISTINCT t) AS txs, round(sum(t.amount_lamports)/1e9*1000)/1000 AS sol WHERE seeds >= 2 RETURN h.address AS Hub, seeds AS SeedCount, txs AS Transfers, sol AS SOL ORDER BY seeds DESC, sol DESC LIMIT 100",
           "width": 12,
-          "height": 4,
+          "height": 6,
           "type": "table",
           "selection": {},
           "settings": {}
@@ -115,19 +119,21 @@
           "query": "MATCH (h:Wallet {source:\"discovered\"})-[:TRANSFER]-(s:Wallet {source:\"pump_seed\"}) WITH h, count(DISTINCT s) AS n WHERE n >= 2 RETURN h.address AS value ORDER BY n DESC LIMIT 100",
           "width": 6,
           "height": 2,
-          "type": "parameter-select",
+          "type": "select",
           "selection": {},
           "settings": {
-            "parameterName": "neodash_hub"
+            "parameterName": "neodash_hub",
+            "type": "Custom Query",
+            "helperText": "Pick a wallet bridging multiple pump.fun accounts"
           }
         },
         {
           "id": 12,
           "title": "Net SOL Flow (+ = inflow)",
-          "query": "MATCH (h:Wallet {address:$neodash_hub}) CALL { WITH h OPTIONAL MATCH (h)<-[ti:TRANSFER]-() RETURN coalesce(sum(ti.amount_lamports),0) AS inbound } CALL { WITH h OPTIONAL MATCH (h)-[to:TRANSFER]->() RETURN coalesce(sum(to.amount_lamports),0) AS outbound } RETURN round((inbound-outbound)/1e9*1000)/1000 AS NetSOL",
+          "query": "OPTIONAL MATCH (h:Wallet {address:$neodash_hub}) CALL { WITH h OPTIONAL MATCH (h)<-[ti:TRANSFER]-() RETURN coalesce(sum(ti.amount_lamports),0) AS inbound } CALL { WITH h OPTIONAL MATCH (h)-[to:TRANSFER]->() RETURN coalesce(sum(to.amount_lamports),0) AS outbound } RETURN coalesce(round((inbound-outbound)/1e9*1000)/1000, 0) AS NetSOL",
           "width": 3,
           "height": 2,
-          "type": "single-value",
+          "type": "value",
           "selection": {},
           "settings": {}
         },
@@ -137,14 +143,14 @@
           "query": "> Select a hub wallet above to explore its connections",
           "width": 3,
           "height": 2,
-          "type": "markdown",
+          "type": "text",
           "selection": {},
           "settings": {}
         },
         {
           "id": 14,
           "title": "Hub Neighborhood",
-          "query": "MATCH (h:Wallet {address:$neodash_hub})-[t:TRANSFER]-(s:Wallet) RETURN h, t, s LIMIT 150",
+          "query": "OPTIONAL MATCH (h:Wallet {address:$neodash_hub}) WITH h WHERE h IS NOT NULL MATCH (h)-[t:TRANSFER]-(s:Wallet) RETURN h, t, s LIMIT 150",
           "width": 12,
           "height": 5,
           "type": "graph",
@@ -164,7 +170,7 @@
           "query": "",
           "width": 6,
           "height": 2,
-          "type": "parameter-select",
+          "type": "select",
           "selection": {},
           "settings": {
             "parameterName": "neodash_wallet",
@@ -175,27 +181,27 @@
         {
           "id": 21,
           "title": "Type",
-          "query": "MATCH (w:Wallet {address:$neodash_wallet}) RETURN w.source AS Type",
+          "query": "OPTIONAL MATCH (w:Wallet {address:$neodash_wallet}) RETURN coalesce(w.source, '') AS Type",
           "width": 3,
           "height": 2,
-          "type": "single-value",
+          "type": "value",
           "selection": {},
           "settings": {}
         },
         {
           "id": 22,
           "title": "First Seen",
-          "query": "MATCH (w:Wallet {address:$neodash_wallet}) RETURN toString(w.first_seen_at) AS FirstSeen",
+          "query": "OPTIONAL MATCH (w:Wallet {address:$neodash_wallet}) RETURN coalesce(toString(w.first_seen_at), '') AS FirstSeen",
           "width": 3,
           "height": 2,
-          "type": "single-value",
+          "type": "value",
           "selection": {},
           "settings": {}
         },
         {
           "id": 23,
           "title": "2-Hop Neighborhood",
-          "query": "MATCH p = (w:Wallet {address:$neodash_wallet})-[:TRANSFER*1..2]-(n:Wallet) RETURN p LIMIT 100",
+          "query": "OPTIONAL MATCH (w:Wallet {address:$neodash_wallet}) WITH w WHERE w IS NOT NULL MATCH p = (w)-[:TRANSFER*1..2]-(n:Wallet) RETURN p LIMIT 100",
           "width": 7,
           "height": 5,
           "type": "graph",
@@ -207,21 +213,21 @@
         {
           "id": 24,
           "title": "Top Counterparties",
-          "query": "MATCH (w:Wallet {address:$neodash_wallet})-[t:TRANSFER]-(c:Wallet) WITH c, sum(CASE WHEN startNode(t)=w THEN t.amount_lamports ELSE 0 END)/1e9 AS sol_out, sum(CASE WHEN endNode(t)=w THEN t.amount_lamports ELSE 0 END)/1e9 AS sol_in, count(t) AS txs RETURN c.address AS Wallet, c.source AS Type, txs AS Transfers, round(sol_in*1000)/1000 AS SOLIn, round(sol_out*1000)/1000 AS SOLOut, round((sol_in-sol_out)*1000)/1000 AS NetSOL ORDER BY txs DESC LIMIT 50",
+          "query": "OPTIONAL MATCH (w:Wallet {address:$neodash_wallet}) WITH w WHERE w IS NOT NULL MATCH (w)-[t:TRANSFER]-(c:Wallet) WITH c, sum(CASE WHEN startNode(t)=w THEN t.amount_lamports ELSE 0 END)/1e9 AS sol_out, sum(CASE WHEN endNode(t)=w THEN t.amount_lamports ELSE 0 END)/1e9 AS sol_in, count(t) AS txs RETURN c.address AS Wallet, c.source AS Type, txs AS Transfers, round(sol_in*1000)/1000 AS SOLIn, round(sol_out*1000)/1000 AS SOLOut, round((sol_in-sol_out)*1000)/1000 AS NetSOL ORDER BY txs DESC LIMIT 50",
           "width": 5,
-          "height": 5,
+          "height": 7,
           "type": "table",
-          "selection": {},
+          "selection": { "Wallet": true, "Type": true, "Transfers": true, "SOLIn": true, "SOLOut": true, "NetSOL": true },
           "settings": {}
         },
         {
           "id": 25,
           "title": "Recent Transfers",
-          "query": "MATCH (a:Wallet {address:$neodash_wallet})-[t:TRANSFER]-(b:Wallet) WITH a, t, b, CASE WHEN startNode(t)=a THEN \"OUT\" ELSE \"IN\" END AS direction ORDER BY t.block_time DESC LIMIT 50 RETURN datetime({epochSeconds: t.block_time}) AS Time, direction AS Dir, round(t.amount_lamports/1e9*1000)/1000 AS SOL, b.address AS Counterparty, b.source AS Type, t.signature AS Signature",
+          "query": "OPTIONAL MATCH (a:Wallet {address:$neodash_wallet}) WITH a WHERE a IS NOT NULL MATCH (a)-[t:TRANSFER]-(b:Wallet) WITH a, t, b, CASE WHEN startNode(t)=a THEN \"OUT\" ELSE \"IN\" END AS direction ORDER BY t.block_time DESC LIMIT 50 RETURN datetime({epochSeconds: t.block_time}) AS Time, direction AS Dir, round(t.amount_lamports/1e9*1000)/1000 AS SOL, b.address AS Counterparty, b.source AS Type, t.signature AS Signature",
           "width": 12,
-          "height": 4,
+          "height": 6,
           "type": "table",
-          "selection": {},
+          "selection": { "Time": true, "Dir": true, "SOL": true, "Counterparty": true, "Type": true, "Signature": true },
           "settings": {}
         }
       ]
@@ -234,7 +240,7 @@
           "title": "Top Wallet Pairs by Volume",
           "query": "MATCH (a:Wallet)-[t:TRANSFER]->(b:Wallet) WITH a, b, sum(t.amount_lamports)/1e9 AS sol, count(t) AS txs ORDER BY sol DESC LIMIT 50 RETURN a.address AS From, a.source AS FromType, b.address AS To, b.source AS ToType, txs AS Transfers, round(sol*1000)/1000 AS SOL",
           "width": 6,
-          "height": 5,
+          "height": 7,
           "type": "table",
           "selection": {},
           "settings": {}
@@ -244,7 +250,7 @@
           "title": "Biggest Single Transfers",
           "query": "MATCH (a:Wallet)-[t:TRANSFER]->(b:Wallet) RETURN a.address AS From, b.address AS To, round(t.amount_lamports/1e9*1000)/1000 AS SOL, datetime({epochSeconds: t.block_time}) AS Time, t.signature AS Signature ORDER BY t.amount_lamports DESC LIMIT 50",
           "width": 6,
-          "height": 5,
+          "height": 7,
           "type": "table",
           "selection": {},
           "settings": {}
@@ -254,9 +260,9 @@
           "title": "SOL Flow (Top Pairs)",
           "query": "MATCH (a:Wallet)-[t:TRANSFER]->(b:Wallet) WITH a, b, sum(t.amount_lamports)/1e9 AS sol ORDER BY sol DESC LIMIT 25 RETURN a.address AS from, b.address AS to, sol AS value",
           "width": 12,
-          "height": 5,
+          "height": 6,
           "type": "sankey",
-          "selection": {},
+          "selection": { "index": "from", "key": "to", "value": "value" },
           "settings": {}
         }
       ]
@@ -267,7 +273,7 @@
         {
           "id": 40,
           "title": "Transfers Per Day by Wallet Pair Type (last 60d)",
-          "query": "MATCH (a:Wallet)-[t:TRANSFER]->(b:Wallet) WITH date(datetime({epochSeconds: t.block_time})) AS day, CASE WHEN a.source=\"pump_seed\" AND b.source=\"pump_seed\" THEN \"seed\u2192seed\" WHEN a.source=\"discovered\" AND b.source=\"discovered\" THEN \"disc\u2192disc\" ELSE \"seed\u2194disc\" END AS kind, count(*) AS n WHERE day >= date() - duration({days: 60}) RETURN day AS Date, kind AS Type, n AS Transfers ORDER BY day",
+          "query": "MATCH (a:Wallet)-[t:TRANSFER]->(b:Wallet) WITH date(datetime({epochSeconds: t.block_time})) AS day, CASE WHEN a.source=\"pump_seed\" AND b.source=\"pump_seed\" THEN \"seed\u2192seed\" WHEN a.source=\"discovered\" AND b.source=\"discovered\" THEN \"disc\u2192disc\" ELSE \"seed\u2194disc\" END AS kind, count(*) AS n WHERE day >= date() - duration({days: 60}) WITH day, sum(CASE WHEN kind=\"seed\u2192seed\" THEN n ELSE 0 END) AS SeedToSeed, sum(CASE WHEN kind=\"disc\u2192disc\" THEN n ELSE 0 END) AS DiscToDisc, sum(CASE WHEN kind=\"seed\u2194disc\" THEN n ELSE 0 END) AS SeedToDisc RETURN day AS Date, SeedToSeed, DiscToDisc, SeedToDisc ORDER BY day",
           "width": 12,
           "height": 4,
           "type": "line",
@@ -287,7 +293,7 @@
         {
           "id": 42,
           "title": "Transfers by Day of Week",
-          "query": "MATCH ()-[t:TRANSFER]->() WITH datetime({epochSeconds: t.block_time}).dayOfWeek AS dow RETURN CASE dow WHEN 1 THEN \"Mon\" WHEN 2 THEN \"Tue\" WHEN 3 THEN \"Wed\" WHEN 4 THEN \"Thu\" WHEN 5 THEN \"Fri\" WHEN 6 THEN \"Sat\" WHEN 7 THEN \"Sun\" END AS Day, count(*) AS Transfers ORDER BY dow",
+          "query": "MATCH ()-[t:TRANSFER]->() WITH datetime({epochSeconds: t.block_time}).dayOfWeek AS dow WITH dow, count(*) AS Transfers RETURN CASE dow WHEN 1 THEN \"Mon\" WHEN 2 THEN \"Tue\" WHEN 3 THEN \"Wed\" WHEN 4 THEN \"Thu\" WHEN 5 THEN \"Fri\" WHEN 6 THEN \"Sat\" WHEN 7 THEN \"Sun\" END AS Day, Transfers ORDER BY dow",
           "width": 6,
           "height": 3,
           "type": "bar",

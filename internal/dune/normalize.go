@@ -44,7 +44,8 @@ type rawTx struct {
 		} `json:"loadedAddresses"`
 	} `json:"meta"`
 	Transaction struct {
-		Message struct {
+		Signatures []string `json:"signatures"`
+		Message    struct {
 			AccountKeys  json.RawMessage `json:"accountKeys"`
 			Instructions []rawIx         `json:"instructions"`
 		} `json:"message"`
@@ -73,10 +74,21 @@ func Normalize(dt DuneTransaction) (*NormalizedTransaction, error) {
 	keys = append(keys, rt.Meta.LoadedAddresses.Writable...)
 	keys = append(keys, rt.Meta.LoadedAddresses.Readonly...)
 
+	sig := dt.Signature
+	if sig == "" && len(rt.Transaction.Signatures) > 0 {
+		sig = rt.Transaction.Signatures[0]
+	}
+
+	// API returns block_time in microseconds; convert to seconds.
+	blockTime := dt.BlockTime
+	if blockTime > 1e12 {
+		blockTime /= 1_000_000
+	}
+
 	n := &NormalizedTransaction{
-		Signature:    dt.Signature,
+		Signature:    sig,
 		BlockSlot:    dt.BlockSlot,
-		BlockTime:    dt.BlockTime,
+		BlockTime:    blockTime,
 		FeeLamports:  rt.Meta.Fee,
 		AccountKeys:  keys,
 		ProgramIDs:   make(map[string]bool),

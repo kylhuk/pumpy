@@ -1,0 +1,30 @@
+http:
+  routers:
+    pumpy:
+      rule: "Host(`pumpy.lama-lan.ch`)"
+      entryPoints:
+        - "websecure"
+      tls:
+        certResolver: "letsencrypt"
+      service: "pumpy-service"
+
+    pumpy-bolt:
+      rule: "Host(`bolt.pumpy.lama-lan.ch`)"
+      entryPoints:
+        - "websecure"
+      tls:
+        certResolver: "letsencrypt"
+      service: "pumpy-bolt-service"
+
+  services:
+    pumpy-service:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:5005"
+        passHostHeader: true
+
+    pumpy-bolt-service:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:17687"
+        passHostHeader: true

@@ -100,18 +100,21 @@ services:
         condition: service_healthy
     ports:
       - "5005:5005"
+    volumes:
+      - ./nginx-gzip.conf:/etc/nginx/conf.d/gzip.conf:ro
     environment:
       ssoEnabled: "false"
       standalone: "true"
-      standaloneProtocol: "bolt"
-      standaloneHost: "${NEODASH_HOST:-localhost}"
-      standalonePort: "17687"
+      standaloneProtocol: "bolt+s"
+      standaloneHost: "bolt.pumpy.lama-lan.ch"
+      standalonePort: "443"
       standaloneDatabase: "neo4j"
       standaloneUsername: "neo4j"
       standalonePassword: "${NEO4J_PASSWORD:-pumpypumpy}"
       standaloneDashboardName: "Wallet Graph"
       standaloneDashboardDatabase: "neo4j"
       standaloneAllowLoad: "true"
+      standalonePasswordWarningHidden: "true"
     logging:
       driver: json-file
       options:

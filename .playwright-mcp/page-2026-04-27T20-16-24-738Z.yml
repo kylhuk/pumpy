@@ -1,0 +1,28 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - img "Logo" [ref=e10] [cursor=pointer]
+        - heading "Labs" [level=6] [ref=e11]
+      - navigation [ref=e12]:
+        - text: NeoDash
+        - img [ref=e13]
+    - status "loading-spinner" [ref=e20]
+  - dialog "NeoDash - Neo4j Dashboard Builder" [ref=e21]:
+    - generic [ref=e24]:
+      - heading "NeoDash - Neo4j Dashboard Builder" [level=4] [ref=e25]:
+        - text: NeoDash - Neo4j Dashboard Builder
+        - img [ref=e26]
+      - generic [ref=e28]:
+        - button "create" [active] [ref=e29] [cursor=pointer]: New Dashboard
+        - button "load" [disabled] [ref=e30]: Existing Dashboard
+        - button "Connect to Neo4j Desktop" [disabled] [ref=e31]
+        - link "demo" [ref=e32] [cursor=pointer]:
+          - /url: https://neodash-gallery.graphapp.io
+          - text: Try a Demo
+        - button "About" [ref=e33] [cursor=pointer]
+      - generic [ref=e35]:
+        - text: This version of NeoDash is not actively maintained. Visit the
+        - link "repository" [ref=e36] [cursor=pointer]:
+          - /url: https://github.com/neo4j-labs/neodash
+        - text: to learn more.

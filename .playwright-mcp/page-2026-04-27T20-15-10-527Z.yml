@@ -1,0 +1,9 @@
+- generic [ref=e3]:
+  - generic [ref=e7]:
+    - generic [ref=e8]:
+      - img "Logo" [ref=e10] [cursor=pointer]
+      - heading "Labs" [level=6] [ref=e11]
+    - navigation [ref=e12]:
+      - text: NeoDash
+      - img [ref=e13]
+  - status "loading-spinner" [ref=e20]
