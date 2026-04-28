@@ -16,7 +16,9 @@ func main() {
 	limit := top.Int("limit", 100, "number of wallets to show")
 
 	if len(os.Args) < 2 {
-		fmt.Println("usage: pumpy top [--window 24h|7d|14d] [--limit N]")
+		fmt.Println("usage: pumpy <command>")
+		fmt.Println("  top    [--window 24h|7d|14d] [--limit N]  top earners by realized PnL")
+		fmt.Println("  stats                                      operational dashboard snapshot")
 		os.Exit(1)
 	}
 
@@ -24,6 +26,8 @@ func main() {
 	case "top":
 		_ = top.Parse(os.Args[2:])
 		runTop(*window, *limit)
+	case "stats":
+		runStats()
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n", os.Args[1])
 		os.Exit(1)
