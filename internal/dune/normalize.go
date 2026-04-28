@@ -30,11 +30,11 @@ type NormalizedInstruction struct {
 
 type rawTx struct {
 	Meta struct {
-		Err              json.RawMessage `json:"err"`
-		Fee              int64           `json:"fee"`
-		PreBalances      []int64         `json:"preBalances"`
-		PostBalances     []int64         `json:"postBalances"`
-		LogMessages      []string        `json:"logMessages"`
+		Err               json.RawMessage `json:"err"`
+		Fee               int64           `json:"fee"`
+		PreBalances       []int64         `json:"preBalances"`
+		PostBalances      []int64         `json:"postBalances"`
+		LogMessages       []string        `json:"logMessages"`
 		InnerInstructions []struct {
 			Instructions []rawIx `json:"instructions"`
 		} `json:"innerInstructions"`
@@ -71,27 +71,33 @@ func Normalize(dt DuneTransaction) (*NormalizedTransaction, error) {
 		return nil, err
 	}
 	// Append versioned-transaction loaded addresses after static keys.
-	keys = append(keys, rt.Meta.LoadedAddresses.Writable...)
-	keys = append(keys, rt.Meta.LoadedAddresses.Readonly...)
+	loadedLen := len(rt.Meta.LoadedAddresses.Writable) + len(rt.Meta.LoadedAddresses.Readonly)
+	if loadedLen > 0 {
+		combined := make([]string, 0, len(keys)+loadedLen)
+		combined = append(combined, keys...)
+		combined = append(combined, rt.Meta.LoadedAddresses.Writable...)
+		combined = append(combined, rt.Meta.LoadedAddresses.Readonly...)
+		keys = combined
+	}
 
 	sig := dt.Signature
 	if sig == "" && len(rt.Transaction.Signatures) > 0 {
 		sig = rt.Transaction.Signatures[0]
 	}
-
-	// API returns block_time in microseconds; convert to seconds.
-	blockTime := dt.BlockTime
-	if blockTime > 1e12 {
-		blockTime /= 1_000_000
+	totalIxCount := len(rt.Transaction.Message.Instructions)
+	for _, inner := range rt.Meta.InnerInstructions {
+		totalIxCount += len(inner.Instructions)
 	}
+	// Pre-size ProgramIDs and inner-instruction slices based on decoded payload
+	// shape to avoid avoidable growth reallocations in hot ingestion paths.
 
 	n := &NormalizedTransaction{
 		Signature:    sig,
 		BlockSlot:    dt.BlockSlot,
-		BlockTime:    blockTime,
+		BlockTime:    normalizeUnixSeconds(dt.BlockTime),
 		FeeLamports:  rt.Meta.Fee,
 		AccountKeys:  keys,
-		ProgramIDs:   make(map[string]bool),
+		ProgramIDs:   make(map[string]bool, totalIxCount),
 		PreBalances:  rt.Meta.PreBalances,
 		PostBalances: rt.Meta.PostBalances,
 		LogMessages:  rt.Meta.LogMessages,
@@ -117,36 +123,71 @@ func Normalize(dt DuneTransaction) (*NormalizedTransaction, error) {
 	if err != nil {
 		return nil, err
 	}
+	totalInner := totalIxCount - len(rt.Transaction.Message.Instructions)
+	if totalInner > 0 {
+		n.InnerInstructions = make([]NormalizedInstruction, 0, totalInner)
+	}
 	for _, inner := range rt.Meta.InnerInstructions {
-		ixs, err := convertIxs(inner.Instructions)
-		if err != nil {
-			return nil, err
+		for _, ix := range inner.Instructions {
+			ni, err := resolveIx(ix, keys)
+			if err != nil {
+				return nil, err
+			}
+			n.ProgramIDs[ni.ProgramID] = true
+			n.InnerInstructions = append(n.InnerInstructions, ni)
 		}
-		n.InnerInstructions = append(n.InnerInstructions, ixs...)
 	}
 	return n, nil
+}
+
+// normalizeUnixSeconds accepts a unix timestamp represented in seconds,
+// milliseconds, microseconds, or nanoseconds and normalizes it to seconds.
+func normalizeUnixSeconds(ts int64) int64 {
+	const (
+		millisecondEpochMin = int64(1_000_000_000_000)
+		microsecondEpochMin = int64(1_000_000_000_000_000)
+		nanosecondEpochMin  = int64(1_000_000_000_000_000_000)
+	)
+
+	switch {
+	case ts >= nanosecondEpochMin:
+		return ts / 1_000_000_000
+	case ts >= microsecondEpochMin:
+		return ts / 1_000_000
+	case ts >= millisecondEpochMin:
+		return ts / 1_000
+	default: // already seconds
+		return ts
+	}
 }
 
 func decodeAccountKeys(raw json.RawMessage) ([]string, error) {
 	if len(raw) == 0 {
 		return nil, nil
 	}
-	// Keys are either []string (legacy) or []{"pubkey":...} (newer encoding).
-	var asStrings []string
-	if err := json.Unmarshal(raw, &asStrings); err == nil {
+	switch detectJSONArrayType(raw) {
+	case jsonArrayEmpty, jsonArrayStrings:
+		// Keys are either []string (legacy) or []{"pubkey":...} (newer encoding).
+		var asStrings []string
+		if err := json.Unmarshal(raw, &asStrings); err != nil {
+			return nil, fmt.Errorf("accountKeys strings: %w", err)
+		}
 		return asStrings, nil
+	case jsonArrayObjects:
+		var asObjects []struct {
+			Pubkey string `json:"pubkey"`
+		}
+		if err := json.Unmarshal(raw, &asObjects); err != nil {
+			return nil, fmt.Errorf("accountKeys objects: %w", err)
+		}
+		out := make([]string, len(asObjects))
+		for i, o := range asObjects {
+			out[i] = o.Pubkey
+		}
+		return out, nil
+	default:
+		return nil, fmt.Errorf("accountKeys: not []string or []object")
 	}
-	var asObjects []struct {
-		Pubkey string `json:"pubkey"`
-	}
-	if err := json.Unmarshal(raw, &asObjects); err != nil {
-		return nil, fmt.Errorf("accountKeys: not []string or []object: %w", err)
-	}
-	out := make([]string, len(asObjects))
-	for i, o := range asObjects {
-		out[i] = o.Pubkey
-	}
-	return out, nil
 }
 
 func resolveIx(ix rawIx, keys []string) (NormalizedInstruction, error) {
@@ -168,9 +209,19 @@ func resolveAccounts(raw json.RawMessage, keys []string) ([]string, error) {
 	if len(raw) == 0 {
 		return nil, nil
 	}
-	// Accounts are either []int (index into keys) or []string (already addresses).
-	var asInts []int
-	if err := json.Unmarshal(raw, &asInts); err == nil {
+	switch detectJSONArrayType(raw) {
+	case jsonArrayEmpty, jsonArrayStrings:
+		var asStrings []string
+		if err := json.Unmarshal(raw, &asStrings); err != nil {
+			return nil, fmt.Errorf("instruction accounts strings: %w", err)
+		}
+		return asStrings, nil
+	case jsonArrayInts:
+		// Accounts are either []int (index into keys) or []string (already addresses).
+		var asInts []int
+		if err := json.Unmarshal(raw, &asInts); err != nil {
+			return nil, fmt.Errorf("instruction accounts ints: %w", err)
+		}
 		out := make([]string, len(asInts))
 		for i, idx := range asInts {
 			if idx < 0 || idx >= len(keys) {
@@ -179,10 +230,48 @@ func resolveAccounts(raw json.RawMessage, keys []string) ([]string, error) {
 			out[i] = keys[idx]
 		}
 		return out, nil
+	default:
+		return nil, fmt.Errorf("instruction accounts: not []int or []string")
 	}
-	var asStrings []string
-	if err := json.Unmarshal(raw, &asStrings); err != nil {
-		return nil, fmt.Errorf("instruction accounts: not []int or []string: %w", err)
+}
+
+type jsonArrayKind uint8
+
+const (
+	jsonArrayUnknown jsonArrayKind = iota
+	jsonArrayEmpty
+	jsonArrayStrings
+	jsonArrayInts
+	jsonArrayObjects
+)
+
+// detectJSONArrayType performs a lightweight shape check to avoid repeated
+// full JSON unmarshalling attempts when a field supports multiple encodings.
+func detectJSONArrayType(raw []byte) jsonArrayKind {
+	i := 0
+	for i < len(raw) && (raw[i] == ' ' || raw[i] == '\n' || raw[i] == '\t' || raw[i] == '\r') {
+		i++
 	}
-	return asStrings, nil
+	if i >= len(raw) || raw[i] != '[' {
+		return jsonArrayUnknown
+	}
+	i++
+	for i < len(raw) && (raw[i] == ' ' || raw[i] == '\n' || raw[i] == '\t' || raw[i] == '\r') {
+		i++
+	}
+	if i >= len(raw) {
+		return jsonArrayUnknown
+	}
+	switch raw[i] {
+	case ']':
+		return jsonArrayEmpty
+	case '"':
+		return jsonArrayStrings
+	case '{':
+		return jsonArrayObjects
+	case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+		return jsonArrayInts
+	default:
+		return jsonArrayUnknown
+	}
 }
