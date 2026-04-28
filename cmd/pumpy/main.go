@@ -19,6 +19,7 @@ func main() {
 		fmt.Println("usage: pumpy <command>")
 		fmt.Println("  top    [--window 24h|7d|14d] [--limit N]  top earners by realized PnL")
 		fmt.Println("  stats                                      operational dashboard snapshot")
+		fmt.Println("  whois  <wallet>                            inspect a single wallet")
 		os.Exit(1)
 	}
 
@@ -28,6 +29,12 @@ func main() {
 		runTop(*window, *limit)
 	case "stats":
 		runStats()
+	case "whois":
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: pumpy whois <wallet>")
+			os.Exit(2)
+		}
+		runWhois(os.Args[2])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n", os.Args[1])
 		os.Exit(1)

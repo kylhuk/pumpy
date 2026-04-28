@@ -1,6 +1,11 @@
 package dashboard
 
-import "time"
+import (
+	"time"
+
+	"pumpy/internal/graph"
+	"pumpy/internal/store"
+)
 
 // Result holds either a value or an error from one metric query.
 // The renderer uses Err to decide whether to show "n/a" (with red indicator).
@@ -64,4 +69,24 @@ type ExternalRow struct {
 	Rank   int
 	Wallet string
 	Trades int64
+}
+
+// WindowedStats holds all per-time-window metrics for a single wallet.
+type WindowedStats struct {
+	PnLSOL            Result[float64]
+	TradeCount        Result[int64]
+	DistinctTokens    Result[int64]
+	TopTokens         Result[[]store.WalletTopToken]
+	TopCounterparties Result[[]graph.Counterparty]
+}
+
+// WhoisData holds all metrics for a single wallet, consumed by RenderWhois.
+type WhoisData struct {
+	Wallet            string
+	Now               time.Time
+	Neo4jOK           bool
+	Window24h         WindowedStats
+	Window7d          WindowedStats
+	Window14d         WindowedStats
+	AllCounterparties Result[[]graph.Counterparty]
 }
