@@ -47,7 +47,7 @@ func main() {
 
 	duneClient := dune.NewClient(cfg.DuneBaseURL, cfg.DuneAPIKey, cfg.MaxRPS, cfg.MaxRetries)
 
-	g, err := graph.New(ctx, cfg.Neo4jURI, cfg.Neo4jUser, cfg.Neo4jPassword)
+	g, err := graph.NewFromEnv(ctx, 30*time.Second)
 	if err != nil {
 		log.Fatalf("neo4j: %v", err)
 	}

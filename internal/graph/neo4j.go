@@ -3,6 +3,8 @@ package graph
 import (
 	"context"
 	"fmt"
+	"os"
+	"time"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
@@ -22,6 +24,26 @@ type Edge struct {
 	Kind           string
 	Confidence     float64
 	SourceProgram  string
+}
+
+// NewFromEnv creates a Writer using NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD env vars.
+// connectTimeout caps the VerifyConnectivity call; use a short value (e.g. 3s) for snapshot commands.
+func NewFromEnv(ctx context.Context, connectTimeout time.Duration) (*Writer, error) {
+	uri := envOrDefault("NEO4J_URI", "bolt://localhost:7687")
+	user := envOrDefault("NEO4J_USER", "neo4j")
+	password := envOrDefault("NEO4J_PASSWORD", "pumpypumpy")
+
+	connCtx, cancel := context.WithTimeout(ctx, connectTimeout)
+	defer cancel()
+
+	return New(connCtx, uri, user, password)
+}
+
+func envOrDefault(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
 }
 
 func New(ctx context.Context, uri, user, password string) (*Writer, error) {
