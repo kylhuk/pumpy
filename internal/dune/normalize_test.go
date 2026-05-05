@@ -172,3 +172,316 @@ func TestNormalize_FailedTransaction(t *testing.T) {
 		t.Error("want non-empty Err for failed transaction")
 	}
 }
+
+func TestNormalize_BlockTimePrecision(t *testing.T) {
+	cases := []struct {
+		name      string
+		blockTime int64
+		want      int64
+	}{
+		{name: "seconds", blockTime: 1_735_000_000, want: 1_735_000_000},
+		{name: "milliseconds", blockTime: 1_735_000_000_000, want: 1_735_000_000},
+		{name: "microseconds", blockTime: 1_735_000_000_000_000, want: 1_735_000_000},
+		{name: "nanoseconds", blockTime: 1_735_000_000_000_000_000, want: 1_735_000_000},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			raw := `{"meta":{"err":null},"transaction":{"message":{"accountKeys":[],"instructions":[]}}}`
+			n, err := Normalize(DuneTransaction{BlockTime: tc.blockTime, RawTransaction: json.RawMessage(raw)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if n.BlockTime != tc.want {
+				t.Fatalf("want block_time %d, got %d", tc.want, n.BlockTime)
+			}
+		})
+	}
+}
+
+func TestNormalizeUnixSeconds_Boundaries(t *testing.T) {
+	cases := []struct {
+		name string
+		in   int64
+		want int64
+	}{
+		{name: "millisecond lower bound", in: 1_000_000_000_000, want: 1_000_000_000},
+		{name: "microsecond lower bound", in: 1_000_000_000_000_000, want: 1_000_000_000},
+		{name: "nanosecond lower bound", in: 1_000_000_000_000_000_000, want: 1_000_000_000},
+		{name: "negative seconds passthrough", in: -1_000, want: -1_000},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := normalizeUnixSeconds(tc.in); got != tc.want {
+				t.Fatalf("normalizeUnixSeconds(%d): want %d, got %d", tc.in, tc.want, got)
+			}
+		})
+	}
+}
+
+func TestNormalize_AccountKeysObjectEncoding(t *testing.T) {
+	raw := `{
+		"signature": "sigObj",
+		"block_slot": 1,
+		"block_time": 1,
+		"raw_transaction": {
+			"meta": {"err": null},
+			"transaction": {
+				"message": {
+					"accountKeys": [{"pubkey": "ObjAcct1"}, {"pubkey": "ObjAcct2"}],
+					"instructions": [{"programId": "Prog", "accounts": [0, 1], "data": ""}]
+				}
+			}
+		}
+	}`
+	var dt DuneTransaction
+	if err := json.Unmarshal([]byte(raw), &dt); err != nil {
+		t.Fatal(err)
+	}
+	n, err := Normalize(dt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(n.AccountKeys) != 2 || n.AccountKeys[0] != "ObjAcct1" || n.AccountKeys[1] != "ObjAcct2" {
+		t.Fatalf("unexpected accountKeys: %v", n.AccountKeys)
+	}
+}
+
+func TestNormalize_InvalidAccountKeysType(t *testing.T) {
+	raw := `{
+		"signature": "sigBad",
+		"block_slot": 1,
+		"block_time": 1,
+		"raw_transaction": {
+			"meta": {"err": null},
+			"transaction": {"message": {"accountKeys": [123], "instructions": []}}
+		}
+	}`
+	var dt DuneTransaction
+	if err := json.Unmarshal([]byte(raw), &dt); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Normalize(dt); err == nil {
+		t.Fatal("expected error for invalid accountKeys encoding")
+	}
+}
+
+func TestNormalize_InvalidInstructionAccountsType(t *testing.T) {
+	raw := `{
+		"signature": "sigBadIx",
+		"block_slot": 1,
+		"block_time": 1,
+		"raw_transaction": {
+			"meta": {"err": null},
+			"transaction": {
+				"message": {
+					"accountKeys": ["A", "B"],
+					"instructions": [{"programId": "Prog", "accounts": [true], "data": ""}]
+				}
+			}
+		}
+	}`
+	var dt DuneTransaction
+	if err := json.Unmarshal([]byte(raw), &dt); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Normalize(dt); err == nil {
+		t.Fatal("expected error for invalid instruction accounts encoding")
+	}
+}
+
+func TestNormalize_SignatureFallbackFromRawTransaction(t *testing.T) {
+	raw := `{
+		"signature": "",
+		"block_slot": 1,
+		"block_time": 1,
+		"raw_transaction": {
+			"meta": {"err": null},
+			"transaction": {
+				"signatures": ["sigFromMessage"],
+				"message": {"accountKeys": [], "instructions": []}
+			}
+		}
+	}`
+	var dt DuneTransaction
+	if err := json.Unmarshal([]byte(raw), &dt); err != nil {
+		t.Fatal(err)
+	}
+	n, err := Normalize(dt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n.Signature != "sigFromMessage" {
+		t.Fatalf("want fallback signature sigFromMessage, got %q", n.Signature)
+	}
+}
+
+func TestNormalize_InnerInstructionsAreCollected(t *testing.T) {
+	raw := `{
+		"signature": "sigInner",
+		"block_slot": 1,
+		"block_time": 1,
+		"raw_transaction": {
+			"meta": {
+				"err": null,
+				"innerInstructions": [
+					{"instructions": [{"programId": "InnerProgA", "accounts": [], "data": ""}]},
+					{"instructions": [{"programId": "InnerProgB", "accounts": [], "data": ""}]}
+				]
+			},
+			"transaction": {
+				"message": {
+					"accountKeys": [],
+					"instructions": [{"programId": "OuterProg", "accounts": [], "data": ""}]
+				}
+			}
+		}
+	}`
+	var dt DuneTransaction
+	if err := json.Unmarshal([]byte(raw), &dt); err != nil {
+		t.Fatal(err)
+	}
+	n, err := Normalize(dt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(n.InnerInstructions) != 2 {
+		t.Fatalf("want 2 inner instructions, got %d", len(n.InnerInstructions))
+	}
+	if !n.ProgramIDs["OuterProg"] || !n.ProgramIDs["InnerProgA"] || !n.ProgramIDs["InnerProgB"] {
+		t.Fatalf("expected program IDs from outer and inner instructions, got %v", n.ProgramIDs)
+	}
+}
+
+func TestNormalize_InstructionAccountIndexOutOfRange(t *testing.T) {
+	raw := `{
+		"signature": "sigBadIndex",
+		"block_slot": 1,
+		"block_time": 1,
+		"raw_transaction": {
+			"meta": {"err": null},
+			"transaction": {
+				"message": {
+					"accountKeys": ["OnlyOne"],
+					"instructions": [{"programId": "Prog", "accounts": [1], "data": ""}]
+				}
+			}
+		}
+	}`
+	var dt DuneTransaction
+	if err := json.Unmarshal([]byte(raw), &dt); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Normalize(dt); err == nil {
+		t.Fatal("expected out-of-range account index error")
+	}
+}
+
+func TestNormalize_AccountKeysObjectMissingPubkey(t *testing.T) {
+	raw := `{
+		"signature": "sigObjMissing",
+		"block_slot": 1,
+		"block_time": 1,
+		"raw_transaction": {
+			"meta": {"err": null},
+			"transaction": {
+				"message": {
+					"accountKeys": [{"pubkey": "Present"}, {}],
+					"instructions": []
+				}
+			}
+		}
+	}`
+	var dt DuneTransaction
+	if err := json.Unmarshal([]byte(raw), &dt); err != nil {
+		t.Fatal(err)
+	}
+	n, err := Normalize(dt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(n.AccountKeys) != 2 || n.AccountKeys[0] != "Present" || n.AccountKeys[1] != "" {
+		t.Fatalf("unexpected accountKeys for missing pubkey field: %v", n.AccountKeys)
+	}
+}
+
+func BenchmarkResolveAccounts_IntIndexes(b *testing.B) {
+	raw := json.RawMessage(`[0,1,2,3,4,5,6,7,8,9]`)
+	keys := []string{"k0", "k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8", "k9"}
+
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := resolveAccounts(raw, keys); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkNormalize_BasicTransaction(b *testing.B) {
+	raw := `{
+		"signature": "benchsig",
+		"block_slot": 250000000,
+		"block_time": 1735000000,
+		"raw_transaction": {
+			"meta": {
+				"err": null,
+				"loadedAddresses": {"writable": ["WriteAddr111"], "readonly": ["RoAddr222"]},
+				"innerInstructions": [{"instructions": [{"programId": "InnerProg", "accounts": [0], "data": ""}]}]
+			},
+			"transaction": {
+				"signatures": ["benchsig"],
+				"message": {
+					"accountKeys": ["Acct0", "Prog111"],
+					"instructions": [{"programIdIndex": 1, "accounts": [0], "data": ""}]
+				}
+			}
+		}
+	}`
+	var dt DuneTransaction
+	if err := json.Unmarshal([]byte(raw), &dt); err != nil {
+		b.Fatal(err)
+	}
+
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := Normalize(dt); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkDetectJSONArrayType(b *testing.B) {
+	raw := []byte(`[{"pubkey":"ObjAcct1"},{"pubkey":"ObjAcct2"}]`)
+
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if got := detectJSONArrayType(raw); got != jsonArrayObjects {
+			b.Fatalf("unexpected kind: %v", got)
+		}
+	}
+}
+
+func TestDetectJSONArrayType(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+		want jsonArrayKind
+	}{
+		{name: "empty", raw: `[]`, want: jsonArrayEmpty},
+		{name: "strings", raw: `["a"]`, want: jsonArrayStrings},
+		{name: "objects", raw: `[{"pubkey":"x"}]`, want: jsonArrayObjects},
+		{name: "ints", raw: `[1,2]`, want: jsonArrayInts},
+		{name: "ints with spaces", raw: " [ \n 2 ] ", want: jsonArrayInts},
+		{name: "bool unsupported", raw: `[true]`, want: jsonArrayUnknown},
+		{name: "non-array", raw: `{"k":"v"}`, want: jsonArrayUnknown},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := detectJSONArrayType([]byte(tc.raw)); got != tc.want {
+				t.Fatalf("detectJSONArrayType(%q): want %v, got %v", tc.raw, tc.want, got)
+			}
+		})
+	}
+}
